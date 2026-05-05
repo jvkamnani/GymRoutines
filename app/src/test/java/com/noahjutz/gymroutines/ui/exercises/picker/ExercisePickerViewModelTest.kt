@@ -26,7 +26,7 @@ import org.junit.runner.Description
 @OptIn(ExperimentalCoroutinesApi::class)
 class ExercisePickerViewModelTest {
     @get:Rule
-    val mainDispatcherRule = MainDispatcherRule()
+    private val mainDispatcherRule = MainDispatcherRule()
 
     @Test
     fun `restricts alternates to exercise names in source notes`() =
