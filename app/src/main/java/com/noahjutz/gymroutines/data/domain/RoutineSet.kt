@@ -25,6 +25,7 @@ data class RoutineSet(
     val weight: Double? = null,
     val time: Int? = null,
     val distance: Double? = null,
+    val setKind: String = SetKinds.NORMAL,
     @PrimaryKey(autoGenerate = true)
     val routineSetId: Int = 0,
 )

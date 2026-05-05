@@ -30,6 +30,7 @@ import com.noahjutz.gymroutines.data.ExerciseRepository
 import com.noahjutz.gymroutines.data.RoutineRepository
 import com.noahjutz.gymroutines.data.WorkoutRepository
 import com.noahjutz.gymroutines.data.domain.Exercise
+import com.noahjutz.gymroutines.data.domain.SetKinds
 import com.noahjutz.gymroutines.data.domain.WorkoutSet
 import com.noahjutz.gymroutines.data.domain.WorkoutSetGroup
 import com.noahjutz.gymroutines.data.domain.WorkoutSetGroupWithSets
@@ -95,6 +96,7 @@ class WorkoutInProgressViewModel(
                     weight = lastSet?.weight,
                     time = lastSet?.time,
                     distance = lastSet?.distance,
+                    setKind = lastSet?.setKind ?: SetKinds.NORMAL,
                 ),
             )
         }
@@ -114,6 +116,7 @@ class WorkoutInProgressViewModel(
                     val set =
                         WorkoutSet(
                             groupId = groupId.toInt(),
+                            setKind = SetKinds.NORMAL,
                         )
                     workoutRepository.insert(set)
                 }
@@ -173,12 +176,84 @@ class WorkoutInProgressViewModel(
         }
     }
 
+    fun updateSetKind(
+        set: WorkoutSet,
+        setKind: String,
+    ) {
+        viewModelScope.launch {
+            workoutRepository.update(set.copy(setKind = setKind))
+        }
+    }
+
     fun updateChecked(
         set: WorkoutSet,
         checked: Boolean,
     ) {
         viewModelScope.launch {
             workoutRepository.update(set.copy(complete = checked))
+        }
+    }
+
+    fun pairSupersetWithPrevious(currentSetGroupId: Int) {
+        viewModelScope.launch {
+            val current = workoutRepository.getSetGroup(currentSetGroupId) ?: return@launch
+            val previous =
+                _workout
+                    ?.setGroups
+                    ?.map { it.group }
+                    ?.firstOrNull { it.position == current.position - 1 }
+                    ?: return@launch
+            val tag = previous.supersetTag ?: "SS${previous.position + 1}"
+            if (previous.supersetTag != tag) {
+                workoutRepository.update(previous.copy(supersetTag = tag))
+            }
+            workoutRepository.update(current.copy(supersetTag = tag))
+        }
+    }
+
+    fun clearSuperset(setGroupId: Int) {
+        viewModelScope.launch {
+            val group = workoutRepository.getSetGroup(setGroupId) ?: return@launch
+            workoutRepository.update(group.copy(supersetTag = null))
+        }
+    }
+
+    fun setAlternateExercise(
+        setGroupId: Int,
+        exerciseId: Int,
+    ) {
+        viewModelScope.launch {
+            val group = workoutRepository.getSetGroup(setGroupId) ?: return@launch
+            if (group.exerciseId == exerciseId) return@launch
+            val originalExerciseId = group.originalExerciseId ?: group.exerciseId
+            if (exerciseId == originalExerciseId) {
+                workoutRepository.update(
+                    group.copy(
+                        exerciseId = exerciseId,
+                        originalExerciseId = null,
+                    ),
+                )
+            } else {
+                workoutRepository.update(
+                    group.copy(
+                        exerciseId = exerciseId,
+                        originalExerciseId = originalExerciseId,
+                    ),
+                )
+            }
+        }
+    }
+
+    fun clearAlternateExercise(setGroupId: Int) {
+        viewModelScope.launch {
+            val group = workoutRepository.getSetGroup(setGroupId) ?: return@launch
+            val originalExerciseId = group.originalExerciseId ?: return@launch
+            workoutRepository.update(
+                group.copy(
+                    exerciseId = originalExerciseId,
+                    originalExerciseId = null,
+                ),
+            )
         }
     }
 

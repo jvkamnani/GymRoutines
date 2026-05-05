@@ -24,6 +24,7 @@ import androidx.compose.animation.ExperimentalAnimationApi
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -86,6 +87,7 @@ import androidx.compose.ui.unit.sp
 import com.noahjutz.gymroutines.R
 import com.noahjutz.gymroutines.data.domain.Routine
 import com.noahjutz.gymroutines.data.domain.RoutineSetGroupWithSets
+import com.noahjutz.gymroutines.data.domain.SetKinds
 import com.noahjutz.gymroutines.ui.components.AutoSelectTextField
 import com.noahjutz.gymroutines.ui.components.SwipeToDeleteBackground
 import com.noahjutz.gymroutines.ui.components.TopBar
@@ -157,6 +159,14 @@ fun RoutineEditor(
                 }
             }
         }
+    }
+}
+
+private fun setKindLabelRes(setKind: String): Int {
+    return when (setKind) {
+        SetKinds.WARM_UP -> R.string.set_kind_warm_up
+        SetKinds.DROP -> R.string.set_kind_drop
+        else -> R.string.set_kind_normal
     }
 }
 
@@ -310,9 +320,41 @@ private fun RoutineEditorContent(
                                             Text(stringResource(R.string.btn_move_down))
                                         },
                                     )
+                                    DropdownMenuItem(
+                                        onClick = {
+                                            expanded = false
+                                            viewModel.pairSupersetWithPrevious(setGroup.group.id)
+                                        },
+                                        enabled = setGroup.group.position > 0,
+                                        text = {
+                                            Text(stringResource(R.string.btn_pair_superset_with_previous))
+                                        },
+                                    )
+                                    if (setGroup.group.supersetTag != null) {
+                                        DropdownMenuItem(
+                                            onClick = {
+                                                expanded = false
+                                                viewModel.clearSuperset(setGroup.group.id)
+                                            },
+                                            text = {
+                                                Text(stringResource(R.string.btn_clear_superset))
+                                            },
+                                        )
+                                    }
                                 }
                             }
                         }
+                    }
+                    if (setGroup.group.supersetTag != null) {
+                        Text(
+                            text =
+                                stringResource(
+                                    R.string.label_superset_tag,
+                                    setGroup.group.supersetTag ?: "",
+                                ),
+                            modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
+                            style = typography.bodyMedium,
+                        )
                     }
                     Column(Modifier.padding(vertical = 16.dp)) {
                         Row(Modifier.padding(horizontal = 4.dp)) {
@@ -323,6 +365,16 @@ private fun RoutineEditorContent(
                                     fontWeight = FontWeight.Bold,
                                     textAlign = TextAlign.Center,
                                 )
+                            Surface(
+                                Modifier
+                                    .padding(horizontal = 4.dp, vertical = 8.dp)
+                                    .width(110.dp),
+                            ) {
+                                Text(
+                                    stringResource(R.string.column_set_type),
+                                    style = headerTextStyle,
+                                )
+                            }
                             if (exercise.logReps) {
                                 Surface(
                                     Modifier
@@ -410,6 +462,49 @@ private fun RoutineEditorContent(
                                                         }
                                                     }
                                                 }
+                                            Box(
+                                                modifier =
+                                                    Modifier
+                                                        .padding(4.dp)
+                                                        .width(110.dp),
+                                            ) {
+                                                var typeMenuExpanded by remember { mutableStateOf(false) }
+                                                Surface(
+                                                    modifier =
+                                                        Modifier
+                                                            .fillMaxWidth()
+                                                            .height(56.dp),
+                                                    color = colorScheme.onSurface.copy(alpha = 0.1f),
+                                                    shape = RoundedCornerShape(8.dp),
+                                                ) {
+                                                    Box(
+                                                        modifier =
+                                                            Modifier
+                                                                .fillMaxWidth()
+                                                                .height(56.dp)
+                                                                .clickable { typeMenuExpanded = true },
+                                                        contentAlignment = Alignment.Center,
+                                                    ) {
+                                                        Text(stringResource(setKindLabelRes(set.setKind)))
+                                                    }
+                                                }
+                                                DropdownMenu(
+                                                    expanded = typeMenuExpanded,
+                                                    onDismissRequest = { typeMenuExpanded = false },
+                                                ) {
+                                                    SetKinds.all.forEach { setKind ->
+                                                        DropdownMenuItem(
+                                                            onClick = {
+                                                                typeMenuExpanded = false
+                                                                viewModel.updateSetKind(set, setKind)
+                                                            },
+                                                            text = {
+                                                                Text(stringResource(setKindLabelRes(setKind)))
+                                                            },
+                                                        )
+                                                    }
+                                                }
+                                            }
                                             if (exercise.logReps) {
                                                 val (reps, setReps) =
                                                     remember {

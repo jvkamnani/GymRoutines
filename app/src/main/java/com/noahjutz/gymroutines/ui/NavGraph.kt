@@ -182,14 +182,25 @@ fun NavGraph(
                     .savedStateHandle
                     .getLiveData<List<Int>>("exerciseIdsToAdd")
                     .observeAsState()
+                val alternateExerciseSelection by backStackEntry
+                    .savedStateHandle
+                    .getLiveData<String>("alternateExerciseSelection")
+                    .observeAsState()
                 LaunchedEffect(exerciseIdsToAdd) {
                     backStackEntry.savedStateHandle["exerciseIdsToAdd"] = null
+                }
+                LaunchedEffect(alternateExerciseSelection) {
+                    backStackEntry.savedStateHandle["alternateExerciseSelection"] = null
                 }
                 val workoutId = backStackEntry.arguments!!.getInt("workoutId")
                 WorkoutInProgress(
                     workoutId = workoutId,
                     exerciseIdsToAdd = exerciseIdsToAdd ?: emptyList(),
+                    alternateExerciseSelection = alternateExerciseSelection,
                     navToExercisePicker = { navController.navigate(Screen.exercisePicker.name) },
+                    navToAlternateExercisePicker = { setGroupId ->
+                        navController.navigate("${Screen.exercisePicker}?targetSetGroupId=$setGroupId")
+                    },
                     popBackStack = { navController.popBackStack() },
                     navToWorkoutCompleted = { workoutId, routineId ->
                         navController.navigate("${Screen.workoutCompleted}/$workoutId/$routineId") {
@@ -229,12 +240,32 @@ fun NavGraph(
             composable(Screen.licenses.name) {
                 LicensesList(popBackStack = { navController.popBackStack() })
             }
-            bottomSheet(Screen.exercisePicker.name) {
+            bottomSheet(
+                route = "${Screen.exercisePicker.name}?targetSetGroupId={targetSetGroupId}",
+                arguments =
+                    listOf(
+                        navArgument("targetSetGroupId") {
+                            defaultValue = -1
+                            type = NavType.IntType
+                        },
+                    ),
+            ) { backStackEntry ->
+                val targetSetGroupId = backStackEntry.arguments?.getInt("targetSetGroupId") ?: -1
                 ExercisePickerSheet(
+                    singleSelect = targetSetGroupId >= 0,
                     onExercisesSelected = { exerciseIds ->
-                        navController.previousBackStackEntry
-                            ?.savedStateHandle
-                            ?.set("exerciseIdsToAdd", exerciseIds)
+                        val previousState = navController.previousBackStackEntry?.savedStateHandle
+                        if (targetSetGroupId >= 0) {
+                            val exerciseId = exerciseIds.firstOrNull() ?: -1
+                            if (exerciseId >= 0) {
+                                previousState?.set(
+                                    "alternateExerciseSelection",
+                                    "$targetSetGroupId:$exerciseId",
+                                )
+                            }
+                        } else {
+                            previousState?.set("exerciseIdsToAdd", exerciseIds)
+                        }
                         navController.popBackStack()
                     },
                     navToExerciseEditor = {

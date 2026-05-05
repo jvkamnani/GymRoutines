@@ -40,7 +40,7 @@ import kotlinx.serialization.json.*
         WorkoutSet::class,
         WorkoutSetGroup::class,
     ],
-    version = 43,
+    version = 44,
     autoMigrations = [AutoMigration(from = 35, to = 36)],
     exportSchema = true,
 )
@@ -656,5 +656,19 @@ val MIGRATION_42_43 =
                 }
             }
             db.execSQL("DROP TABLE workout_table_old")
+        }
+    }
+
+/**
+ * Adds set kind metadata, superset grouping, and alternate exercise tracking.
+ */
+val MIGRATION_43_44 =
+    object : Migration(43, 44) {
+        override fun migrate(db: SupportSQLiteDatabase) {
+            db.execSQL("ALTER TABLE routine_set_table ADD COLUMN setKind TEXT NOT NULL DEFAULT 'normal'")
+            db.execSQL("ALTER TABLE workout_set_table ADD COLUMN setKind TEXT NOT NULL DEFAULT 'normal'")
+            db.execSQL("ALTER TABLE routine_set_group_table ADD COLUMN supersetTag TEXT")
+            db.execSQL("ALTER TABLE workout_set_group_table ADD COLUMN supersetTag TEXT")
+            db.execSQL("ALTER TABLE workout_set_group_table ADD COLUMN originalExerciseId INTEGER")
         }
     }

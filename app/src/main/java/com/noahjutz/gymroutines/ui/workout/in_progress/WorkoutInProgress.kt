@@ -25,6 +25,7 @@ import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -85,6 +86,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.noahjutz.gymroutines.R
+import com.noahjutz.gymroutines.data.domain.SetKinds
 import com.noahjutz.gymroutines.data.domain.WorkoutWithSetGroups
 import com.noahjutz.gymroutines.data.domain.duration
 import com.noahjutz.gymroutines.ui.components.AutoSelectTextField
@@ -103,14 +105,25 @@ import org.koin.core.parameter.parametersOf
 @Composable
 fun WorkoutInProgress(
     navToExercisePicker: () -> Unit,
+    navToAlternateExercisePicker: (Int) -> Unit,
     navToWorkoutCompleted: (Int, Int) -> Unit,
     popBackStack: () -> Unit,
     workoutId: Int,
     exerciseIdsToAdd: List<Int>,
+    alternateExerciseSelection: String?,
     viewModel: WorkoutInProgressViewModel = getViewModel { parametersOf(workoutId) },
 ) {
-    LaunchedEffect(exerciseIdsToAdd) {
-        viewModel.addExercises(exerciseIdsToAdd)
+    LaunchedEffect(exerciseIdsToAdd, alternateExerciseSelection) {
+        if (alternateExerciseSelection != null) {
+            val parts = alternateExerciseSelection.split(":")
+            val setGroupId = parts.getOrNull(0)?.toIntOrNull()
+            val exerciseId = parts.getOrNull(1)?.toIntOrNull()
+            if (setGroupId != null && exerciseId != null) {
+                viewModel.setAlternateExercise(setGroupId, exerciseId)
+            }
+        } else if (exerciseIdsToAdd.isNotEmpty()) {
+            viewModel.addExercises(exerciseIdsToAdd)
+        }
     }
 
     Scaffold(
@@ -142,6 +155,7 @@ fun WorkoutInProgress(
                         viewModel = viewModel,
                         popBackStack = popBackStack,
                         navToExercisePicker = navToExercisePicker,
+                        navToAlternateExercisePicker = navToAlternateExercisePicker,
                         navToWorkoutCompleted = navToWorkoutCompleted,
                     )
                 }
@@ -159,6 +173,7 @@ private fun WorkoutInProgressContent(
     viewModel: WorkoutInProgressViewModel,
     popBackStack: () -> Unit,
     navToExercisePicker: () -> Unit,
+    navToAlternateExercisePicker: (Int) -> Unit,
     navToWorkoutCompleted: (Int, Int) -> Unit,
 ) {
     var showFinishWorkoutDialog by remember { mutableStateOf(false) }
@@ -210,6 +225,8 @@ private fun WorkoutInProgressContent(
 
         items(workout.setGroups.sortedBy { it.group.position }, key = { it.group.id }) { setGroup ->
             val exercise by viewModel.getExercise(setGroup.group.exerciseId)
+                .collectAsState(initial = null)
+            val originalExercise by viewModel.getExercise(setGroup.group.originalExerciseId ?: -1)
                 .collectAsState(initial = null)
             ElevatedCard(
                 Modifier
@@ -283,9 +300,81 @@ private fun WorkoutInProgressContent(
                                             Text(stringResource(R.string.btn_move_down))
                                         },
                                     )
+                                    DropdownMenuItem(
+                                        onClick = {
+                                            expanded = false
+                                            navToAlternateExercisePicker(setGroup.group.id)
+                                        },
+                                        text = {
+                                            Text(stringResource(R.string.btn_log_alternate_exercise))
+                                        },
+                                    )
+                                    if (setGroup.group.originalExerciseId != null) {
+                                        DropdownMenuItem(
+                                            onClick = {
+                                                expanded = false
+                                                viewModel.clearAlternateExercise(setGroup.group.id)
+                                            },
+                                            text = {
+                                                Text(stringResource(R.string.btn_clear_alternate_exercise))
+                                            },
+                                        )
+                                    }
+                                    DropdownMenuItem(
+                                        onClick = {
+                                            expanded = false
+                                            viewModel.pairSupersetWithPrevious(setGroup.group.id)
+                                        },
+                                        enabled = setGroup.group.position > 0,
+                                        text = {
+                                            Text(stringResource(R.string.btn_pair_superset_with_previous))
+                                        },
+                                    )
+                                    if (setGroup.group.supersetTag != null) {
+                                        DropdownMenuItem(
+                                            onClick = {
+                                                expanded = false
+                                                viewModel.clearSuperset(setGroup.group.id)
+                                            },
+                                            text = {
+                                                Text(stringResource(R.string.btn_clear_superset))
+                                            },
+                                        )
+                                    }
                                 }
                             }
                         }
+                    }
+                    if (setGroup.group.originalExerciseId != null || setGroup.group.supersetTag != null) {
+                        Column(Modifier.padding(horizontal = 16.dp, vertical = 8.dp)) {
+                            if (setGroup.group.originalExerciseId != null) {
+                                Text(
+                                    text =
+                                        stringResource(
+                                            R.string.label_alternate_for,
+                                            originalExercise?.name ?: "",
+                                        ),
+                                    style = typography.bodyMedium,
+                                )
+                            }
+                            if (setGroup.group.supersetTag != null) {
+                                Text(
+                                    text =
+                                        stringResource(
+                                            R.string.label_superset_tag,
+                                            setGroup.group.supersetTag ?: "",
+                                        ),
+                                    style = typography.bodyMedium,
+                                )
+                            }
+                        }
+                    }
+                    if (exercise?.notes?.isNotBlank() == true) {
+                        Text(
+                            text = exercise?.notes ?: "",
+                            modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
+                            style = typography.bodyMedium,
+                        )
                     }
                     Column(Modifier.padding(vertical = 16.dp)) {
                         Row(Modifier.padding(horizontal = 4.dp)) {
@@ -296,6 +385,20 @@ private fun WorkoutInProgressContent(
                                     fontWeight = FontWeight.Bold,
                                     textAlign = TextAlign.Center,
                                 )
+                            Box(
+                                Modifier
+                                    .padding(4.dp)
+                                    .width(110.dp)
+                                    .height(56.dp)
+                                    .clip(RoundedCornerShape(8.dp))
+                                    .background(colorScheme.primary.copy(alpha = 0.1f)),
+                                contentAlignment = Alignment.Center,
+                            ) {
+                                Text(
+                                    stringResource(R.string.column_set_type),
+                                    style = headerTextStyle,
+                                )
+                            }
                             if (exercise?.logReps == true) {
                                 Box(
                                     Modifier
@@ -412,6 +515,43 @@ private fun WorkoutInProgressContent(
                                                         }
                                                     }
                                                 }
+                                            Box(
+                                                modifier =
+                                                    Modifier
+                                                        .padding(4.dp)
+                                                        .width(110.dp),
+                                            ) {
+                                                var typeMenuExpanded by remember { mutableStateOf(false) }
+                                                Surface(
+                                                    modifier =
+                                                        Modifier
+                                                            .fillMaxWidth()
+                                                            .height(56.dp)
+                                                            .clip(RoundedCornerShape(8.dp))
+                                                            .clickable { typeMenuExpanded = true },
+                                                    color = colorScheme.onSurface.copy(alpha = 0.1f),
+                                                ) {
+                                                    Box(contentAlignment = Alignment.Center) {
+                                                        Text(stringResource(setKindLabelRes(set.setKind)))
+                                                    }
+                                                }
+                                                DropdownMenu(
+                                                    expanded = typeMenuExpanded,
+                                                    onDismissRequest = { typeMenuExpanded = false },
+                                                ) {
+                                                    SetKinds.all.forEach { setKind ->
+                                                        DropdownMenuItem(
+                                                            onClick = {
+                                                                typeMenuExpanded = false
+                                                                viewModel.updateSetKind(set, setKind)
+                                                            },
+                                                            text = {
+                                                                Text(stringResource(setKindLabelRes(setKind)))
+                                                            },
+                                                        )
+                                                    }
+                                                }
+                                            }
                                             if (exercise?.logReps == true) {
                                                 val (reps, setReps) =
                                                     remember {
@@ -639,6 +779,14 @@ private fun WorkoutInProgressContent(
                 }
             }
         }
+    }
+}
+
+private fun setKindLabelRes(setKind: String): Int {
+    return when (setKind) {
+        SetKinds.WARM_UP -> R.string.set_kind_warm_up
+        SetKinds.DROP -> R.string.set_kind_drop
+        else -> R.string.set_kind_normal
     }
 }
 

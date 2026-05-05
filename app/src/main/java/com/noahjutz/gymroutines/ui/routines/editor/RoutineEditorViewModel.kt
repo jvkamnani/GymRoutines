@@ -31,6 +31,7 @@ import com.noahjutz.gymroutines.data.domain.Routine
 import com.noahjutz.gymroutines.data.domain.RoutineSet
 import com.noahjutz.gymroutines.data.domain.RoutineSetGroup
 import com.noahjutz.gymroutines.data.domain.RoutineSetGroupWithSets
+import com.noahjutz.gymroutines.data.domain.SetKinds
 import com.noahjutz.gymroutines.data.domain.Workout
 import com.noahjutz.gymroutines.data.domain.WorkoutSet
 import com.noahjutz.gymroutines.data.domain.WorkoutSetGroup
@@ -96,6 +97,7 @@ class RoutineEditorViewModel(
                     weight = lastSet?.weight,
                     time = lastSet?.time,
                     distance = lastSet?.distance,
+                    setKind = lastSet?.setKind ?: SetKinds.NORMAL,
                 ),
             )
         }
@@ -115,6 +117,7 @@ class RoutineEditorViewModel(
                     val set =
                         RoutineSet(
                             groupId = groupId.toInt(),
+                            setKind = SetKinds.NORMAL,
                         )
                     routineRepository.insert(set)
                 }
@@ -174,6 +177,35 @@ class RoutineEditorViewModel(
         }
     }
 
+    fun updateSetKind(
+        set: RoutineSet,
+        setKind: String,
+    ) {
+        viewModelScope.launch {
+            routineRepository.update(set.copy(setKind = setKind))
+        }
+    }
+
+    fun pairSupersetWithPrevious(currentSetGroupId: Int) {
+        viewModelScope.launch {
+            val current = routineRepository.getSetGroup(currentSetGroupId) ?: return@launch
+            val previous =
+                _setGroups.firstOrNull { it.position == current.position - 1 } ?: return@launch
+            val tag = previous.supersetTag ?: "SS${previous.position + 1}"
+            if (previous.supersetTag != tag) {
+                routineRepository.update(previous.copy(supersetTag = tag))
+            }
+            routineRepository.update(current.copy(supersetTag = tag))
+        }
+    }
+
+    fun clearSuperset(setGroupId: Int) {
+        viewModelScope.launch {
+            val setGroup = routineRepository.getSetGroup(setGroupId) ?: return@launch
+            routineRepository.update(setGroup.copy(supersetTag = null))
+        }
+    }
+
     fun startWorkout(onWorkoutStarted: (Long) -> Unit) {
         viewModelScope.launch {
             _routine?.let { _routine ->
@@ -189,6 +221,7 @@ class RoutineEditorViewModel(
                             workoutId = workoutId.toInt(),
                             exerciseId = routineSetGroup.exerciseId,
                             position = routineSetGroup.position,
+                            supersetTag = routineSetGroup.supersetTag,
                         )
                     val setGroupId = workoutRepository.insert(workoutSetGroup)
 
@@ -200,6 +233,7 @@ class RoutineEditorViewModel(
                                 weight = routineSet.weight,
                                 time = routineSet.time,
                                 distance = routineSet.distance,
+                                setKind = routineSet.setKind,
                                 complete = false,
                             )
                         workoutRepository.insert(workoutSet)

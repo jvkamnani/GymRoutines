@@ -25,7 +25,11 @@
     <string name="column_weight">Weight</string>
     <string name="column_time">Time</string>
     <string name="column_distance">Distance</string>
+    <string name="column_set_type">Type</string>
     <string name="column_set_complete">Set Complete</string>
+    <string name="set_kind_normal">Normal</string>
+    <string name="set_kind_warm_up">Warm-up</string>
+    <string name="set_kind_drop">Drop set</string>
     <string name="alert_no_log_value_selected">Please select at least one value.</string>
     <string name="checkbox_log_reps">Log Reps</string>
     <string name="checkbox_log_weight">Log Weight</string>
@@ -94,9 +98,15 @@
     <string name="drag_handle">Rearrange</string>
     <string name="btn_discard_workout">Discard Workout</string>
     <string name="btn_finish_workout">Finish Workout</string>
+    <string name="btn_log_alternate_exercise">Log alternate exercise</string>
+    <string name="btn_clear_alternate_exercise">Clear alternate exercise</string>
+    <string name="btn_pair_superset_with_previous">Pair superset with previous</string>
+    <string name="btn_clear_superset">Clear superset</string>
     <string name="dialog_title_discard_workout">Discard Workout?</string>
     <string name="dialog_title_finish_workout">Finish Workout?</string>
     <string name="dialog_confirm_finish_workout">Finish</string>
+    <string name="label_alternate_for">Alternate for: %1$s</string>
+    <string name="label_superset_tag">Superset: %1$s</string>
     <string name="chart_workout_duration">Workout duration</string>
     <string name="chart_insufficient_data">Not enough data.</string>
     <string name="screen_view_workout">View Workout</string>

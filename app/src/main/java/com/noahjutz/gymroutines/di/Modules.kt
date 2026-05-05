@@ -42,6 +42,7 @@ val koinModule =
     module {
         single {
             Room.databaseBuilder(androidContext(), AppDatabase::class.java, "workout_routines_database")
+                .createFromAsset("preloaded/workout_routines_database")
                 .addMigrations(
                     MIGRATION_36_37,
                     MIGRATION_37_38,
@@ -50,6 +51,7 @@ val koinModule =
                     MIGRATION_40_41,
                     MIGRATION_41_42,
                     MIGRATION_42_43,
+                    MIGRATION_43_44,
                 )
                 .build()
         }

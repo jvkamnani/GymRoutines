@@ -50,6 +50,7 @@ import org.koin.androidx.compose.getViewModel
 @Composable
 fun ExercisePickerSheet(
     viewModel: ExercisePickerViewModel = getViewModel(),
+    singleSelect: Boolean = false,
     onExercisesSelected: (List<Int>) -> Unit,
     navToExerciseEditor: () -> Unit,
 ) {
@@ -92,7 +93,11 @@ fun ExercisePickerSheet(
                                 value = checked,
                                 onValueChange = {
                                     if (it) {
-                                        viewModel.addExercise(exercise)
+                                        if (singleSelect) {
+                                            viewModel.setSingleExercise(exercise)
+                                        } else {
+                                            viewModel.addExercise(exercise)
+                                        }
                                     } else {
                                         viewModel.removeExercise(exercise)
                                     }

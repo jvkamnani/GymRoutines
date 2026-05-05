@@ -33,6 +33,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.noahjutz.gymroutines.R
+import com.noahjutz.gymroutines.data.domain.SetKinds
 import com.noahjutz.gymroutines.data.domain.WorkoutWithSetGroups
 import com.noahjutz.gymroutines.data.domain.duration
 import com.noahjutz.gymroutines.ui.components.TopBar
@@ -42,6 +43,14 @@ import com.noahjutz.gymroutines.util.toStringOrBlank
 import org.koin.androidx.compose.getViewModel
 import org.koin.core.parameter.parametersOf
 import kotlin.time.ExperimentalTime
+
+private fun setKindLabelRes(setKind: String): Int {
+    return when (setKind) {
+        SetKinds.WARM_UP -> R.string.set_kind_warm_up
+        SetKinds.DROP -> R.string.set_kind_drop
+        else -> R.string.set_kind_normal
+    }
+}
 
 @OptIn(ExperimentalTime::class)
 @Composable
@@ -111,6 +120,8 @@ fun WorkoutViewerContent(
         items(workout.setGroups.sortedBy { it.group.position }) { setGroup ->
             val exercise by viewModel.getExercise(setGroup.group.exerciseId)
                 .collectAsState(initial = null)
+            val originalExercise by viewModel.getExercise(setGroup.group.originalExerciseId ?: -1)
+                .collectAsState(initial = null)
 
             Card(
                 Modifier
@@ -135,6 +146,37 @@ fun WorkoutViewerContent(
                             )
                         }
                     }
+                    if (setGroup.group.originalExerciseId != null || setGroup.group.supersetTag != null) {
+                        Column(Modifier.padding(horizontal = 24.dp, vertical = 8.dp)) {
+                            if (setGroup.group.originalExerciseId != null) {
+                                Text(
+                                    text =
+                                        stringResource(
+                                            R.string.label_alternate_for,
+                                            originalExercise?.name ?: "",
+                                        ),
+                                    style = typography.bodyMedium,
+                                )
+                            }
+                            if (setGroup.group.supersetTag != null) {
+                                Text(
+                                    text =
+                                        stringResource(
+                                            R.string.label_superset_tag,
+                                            setGroup.group.supersetTag ?: "",
+                                        ),
+                                    style = typography.bodyMedium,
+                                )
+                            }
+                        }
+                    }
+                    if (exercise?.notes?.isNotBlank() == true) {
+                        Text(
+                            text = exercise?.notes ?: "",
+                            modifier = Modifier.padding(horizontal = 24.dp, vertical = 8.dp),
+                            style = typography.bodyMedium,
+                        )
+                    }
                     Column(Modifier.padding(vertical = 16.dp)) {
                         Row(Modifier.padding(horizontal = 4.dp)) {
                             val headerTextStyle =
@@ -144,6 +186,20 @@ fun WorkoutViewerContent(
                                     fontWeight = FontWeight.Bold,
                                     textAlign = TextAlign.Center,
                                 )
+                            Box(
+                                Modifier
+                                    .padding(4.dp)
+                                    .width(110.dp)
+                                    .height(56.dp)
+                                    .clip(RoundedCornerShape(8.dp))
+                                    .background(colorScheme.primary.copy(alpha = 0.1f)),
+                                contentAlignment = Alignment.Center,
+                            ) {
+                                Text(
+                                    stringResource(R.string.column_set_type),
+                                    style = headerTextStyle,
+                                )
+                            }
                             if (exercise?.logReps == true) {
                                 Box(
                                     Modifier
@@ -255,6 +311,21 @@ fun WorkoutViewerContent(
                                             }
                                         }
                                     }
+                                Surface(
+                                    modifier =
+                                        Modifier
+                                            .padding(4.dp)
+                                            .width(110.dp),
+                                    color = colorScheme.onSurface.copy(alpha = 0.1f),
+                                    shape = RoundedCornerShape(8.dp),
+                                ) {
+                                    Box(
+                                        Modifier.height(56.dp),
+                                        contentAlignment = Alignment.Center,
+                                    ) {
+                                        Text(stringResource(setKindLabelRes(set.setKind)))
+                                    }
+                                }
                                 if (exercise?.logReps == true) {
                                     TableCell { Text(set.reps.toStringOrBlank()) }
                                 }

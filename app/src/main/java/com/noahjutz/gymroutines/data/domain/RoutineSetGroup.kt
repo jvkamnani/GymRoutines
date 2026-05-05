@@ -20,6 +20,7 @@ data class RoutineSetGroup(
     val routineId: Int,
     val exerciseId: Int,
     val position: Int,
+    val supersetTag: String? = null,
     @PrimaryKey(autoGenerate = true)
     val id: Int = 0,
 )

@@ -20,6 +20,8 @@ data class WorkoutSetGroup(
     val workoutId: Int,
     val exerciseId: Int,
     val position: Int,
+    val supersetTag: String? = null,
+    val originalExerciseId: Int? = null,
     @PrimaryKey(autoGenerate = true)
     val id: Int = 0,
 )

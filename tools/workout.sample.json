@@ -1,0 +1,72 @@
+{
+  "routines": [
+    {
+      "name": "Push Day",
+      "exercises": [
+        {
+          "name": "Bench Press",
+          "notes": "Flat barbell",
+          "alternatives": ["Dumbbell Bench Press", "Machine Chest Press"],
+          "warmupSets": 2,
+          "warmupReps": 8,
+          "track": {
+            "reps": true,
+            "weight": true,
+            "time": false,
+            "distance": false
+          },
+          "sets": [
+            { "reps": 10, "weight": 60, "kind": "normal" },
+            { "reps": 8, "weight": 65, "kind": "normal" },
+            { "reps": 6, "weight": 70, "kind": "drop" }
+          ]
+        },
+        {
+          "name": "Overhead Press",
+          "supersetTag": "A",
+          "track": {
+            "reps": true,
+            "weight": true
+          },
+          "sets": [
+            { "reps": 10, "weight": 35, "kind": "normal" },
+            { "reps": 8, "weight": 40, "kind": "normal" },
+            { "reps": 6, "weight": 45, "kind": "normal" }
+          ]
+        },
+        {
+          "name": "Plank",
+          "supersetTag": "A",
+          "track": {
+            "reps": false,
+            "weight": false,
+            "time": true,
+            "distance": false
+          },
+          "sets": [
+            { "time": 60, "kind": "normal" },
+            { "time": 60, "kind": "normal" },
+            { "time": 45, "kind": "normal" }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Pull Day",
+      "exercises": [
+        {
+          "name": "Barbell Row",
+          "track": {
+            "reps": true,
+            "weight": true
+          },
+          "sets": [
+            { "reps": 10, "weight": 50, "kind": "normal" },
+            { "reps": 8, "weight": 55, "kind": "normal" },
+            { "reps": 8, "weight": 55, "kind": "normal" }
+          ]
+        }
+      ]
+    }
+  ]
+}

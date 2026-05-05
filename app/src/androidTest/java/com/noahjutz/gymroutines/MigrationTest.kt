@@ -49,6 +49,7 @@ class MigrationTest {
                 MIGRATION_40_41,
                 MIGRATION_41_42,
                 MIGRATION_42_43,
+                MIGRATION_43_44,
             )
             .build()
             .apply {
@@ -187,6 +188,31 @@ class MigrationTest {
                 val name = routine.getString(0)
                 Assert.assertEquals(name, "Legs")
             }
+        }
+    }
+
+    @Test
+    @Throws(IOException::class)
+    fun migrate43to44() {
+        var db =
+            helper.createDatabase(TEST_DB, 43).use {
+                it.execSQL("INSERT INTO routine_table VALUES ('Full Body', 0, 12)")
+                it.execSQL("INSERT INTO exercise_table VALUES ('Squat', '', 'true', 'true', 'false', 'false', 'false', 0)")
+                it.execSQL("INSERT INTO workout_table VALUES (12, 0, 0, 1)")
+                it.execSQL("INSERT INTO routine_set_group_table VALUES (12, 0, 0, 9)")
+                it.execSQL("INSERT INTO workout_set_group_table VALUES (1, 0, 0, 9)")
+                it.execSQL("INSERT INTO routine_set_table VALUES (9, 6, 100, null, null, 1)")
+                it.execSQL("INSERT INTO workout_set_table VALUES (9, 6, 100, null, null, 0, 1)")
+                it
+            }
+        db = helper.runMigrationsAndValidate(TEST_DB, 44, true, MIGRATION_43_44)
+        db.query("SELECT setKind FROM routine_set_table WHERE routineSetId=1").use { routineSet ->
+            Assert.assertTrue(routineSet.moveToFirst())
+            Assert.assertEquals("normal", routineSet.getString(0))
+        }
+        db.query("SELECT setKind FROM workout_set_table WHERE workoutSetId=1").use { workoutSet ->
+            Assert.assertTrue(workoutSet.moveToFirst())
+            Assert.assertEquals("normal", workoutSet.getString(0))
         }
     }
 }

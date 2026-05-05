@@ -48,6 +48,10 @@ class ExercisePickerViewModel(
             _selectedExercises.value.toMutableList().apply { remove(exercise) }
     }
 
+    fun setSingleExercise(exercise: Exercise) {
+        _selectedExercises.value = listOf(exercise)
+    }
+
     val nameFilter = _nameFilter.asStateFlow()
 
     val allExercises =

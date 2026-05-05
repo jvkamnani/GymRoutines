@@ -80,6 +80,7 @@ class WorkoutCompletedViewModel(
                     routineId = routineId,
                     exerciseId = setGroup.exerciseId,
                     position = setGroup.position,
+                    supersetTag = setGroup.supersetTag,
                 )
             val groupId = routineRepository.insert(routineSetGroup)
             for (set in workoutSets.filter { it.groupId == setGroup.id }) {
@@ -90,6 +91,7 @@ class WorkoutCompletedViewModel(
                         weight = set.weight,
                         time = set.time,
                         distance = set.distance,
+                        setKind = set.setKind,
                     )
                 routineRepository.insert(routineSet)
             }

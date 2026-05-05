@@ -43,6 +43,7 @@ data class WorkoutSet(
     val weight: Double? = null,
     val time: Int? = null,
     val distance: Double? = null,
+    val setKind: String = SetKinds.NORMAL,
     val complete: Boolean = false,
     @PrimaryKey(autoGenerate = true)
     val workoutSetId: Int = 0,
