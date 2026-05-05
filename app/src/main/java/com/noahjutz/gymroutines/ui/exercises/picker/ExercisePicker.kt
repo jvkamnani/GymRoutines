@@ -45,11 +45,13 @@ import com.noahjutz.gymroutines.R
 import com.noahjutz.gymroutines.ui.components.SearchBar
 import com.noahjutz.gymroutines.ui.components.TopBar
 import org.koin.androidx.compose.getViewModel
+import org.koin.core.parameter.parametersOf
 
 @ExperimentalAnimationApi
 @Composable
 fun ExercisePickerSheet(
-    viewModel: ExercisePickerViewModel = getViewModel(),
+    targetSetGroupId: Int = -1,
+    viewModel: ExercisePickerViewModel = getViewModel { parametersOf(targetSetGroupId) },
     singleSelect: Boolean = false,
     onExercisesSelected: (List<Int>) -> Unit,
     navToExerciseEditor: () -> Unit,

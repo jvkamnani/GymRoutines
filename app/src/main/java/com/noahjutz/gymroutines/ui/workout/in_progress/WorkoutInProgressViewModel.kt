@@ -105,19 +105,20 @@ class WorkoutInProgressViewModel(
     fun addExercises(exerciseIds: List<Int>) {
         _workout?.let { workout ->
             viewModelScope.launch {
-                for (exerciseId in exerciseIds) {
+                exerciseIds.forEachIndexed { index, exerciseId ->
                     val setGroup =
                         WorkoutSetGroup(
                             exerciseId = exerciseId,
                             workoutId = workout.workout.workoutId,
-                            position = workout.setGroups.size,
+                            position = workout.setGroups.size + index,
                         )
                     val groupId = workoutRepository.insert(setGroup)
-                    val set =
-                        WorkoutSet(
-                            groupId = groupId.toInt(),
-                            setKind = SetKinds.NORMAL,
+                    val previousSet =
+                        workoutRepository.getMostRecentLoggedSetForExercise(
+                            exerciseId = exerciseId,
+                            excludeWorkoutId = workout.workout.workoutId,
                         )
+                    val set = seedWorkoutSetFromPrevious(groupId.toInt(), previousSet)
                     workoutRepository.insert(set)
                 }
             }

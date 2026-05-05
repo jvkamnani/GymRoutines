@@ -19,20 +19,41 @@
 package com.noahjutz.gymroutines.ui.exercises.picker
 
 import androidx.lifecycle.ViewModel
+import androidx.lifecycle.viewModelScope
 import com.noahjutz.gymroutines.data.ExerciseRepository
+import com.noahjutz.gymroutines.data.WorkoutRepository
 import com.noahjutz.gymroutines.data.domain.Exercise
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
-import java.util.*
+import kotlinx.coroutines.launch
+import java.util.Locale
 
 class ExercisePickerViewModel(
     exerciseRepository: ExerciseRepository,
+    workoutRepository: WorkoutRepository,
+    targetSetGroupId: Int,
 ) : ViewModel() {
     private val _nameFilter = MutableStateFlow("")
     private val exercises = exerciseRepository.exercises
     private val _selectedExercises = MutableStateFlow(emptyList<Exercise>())
+    private val _allowedExerciseIds =
+        MutableStateFlow<Set<Int>?>(if (targetSetGroupId >= 0) emptySet() else null)
+
+    init {
+        if (targetSetGroupId >= 0) {
+            viewModelScope.launch {
+                _allowedExerciseIds.value =
+                    resolveAllowedExerciseIds(
+                        exerciseRepository = exerciseRepository,
+                        workoutRepository = workoutRepository,
+                        targetSetGroupId = targetSetGroupId,
+                    )
+            }
+        }
+    }
 
     fun search(name: String) {
         _nameFilter.value = name
@@ -55,10 +76,11 @@ class ExercisePickerViewModel(
     val nameFilter = _nameFilter.asStateFlow()
 
     val allExercises =
-        exercises.combine(_nameFilter) { exercises, nameFilter ->
+        combine(exercises, _nameFilter, _allowedExerciseIds) { exercises, nameFilter, allowedExerciseIds ->
             exercises.filter {
-                it.name.lowercase(Locale.getDefault())
-                    .contains(nameFilter.lowercase(Locale.getDefault()))
+                (allowedExerciseIds == null || allowedExerciseIds.contains(it.exerciseId)) &&
+                    it.name.lowercase(Locale.getDefault())
+                        .contains(nameFilter.lowercase(Locale.getDefault()))
             }
         }
 
@@ -67,4 +89,40 @@ class ExercisePickerViewModel(
     val selectedExerciseIds = selectedExercises.map { it.map { it.exerciseId } }
 
     fun exercisesContains(exercise: Exercise) = selectedExercises.map { it.contains(exercise) }
+
+    private suspend fun resolveAllowedExerciseIds(
+        exerciseRepository: ExerciseRepository,
+        workoutRepository: WorkoutRepository,
+        targetSetGroupId: Int,
+    ): Set<Int>? {
+        val setGroup = workoutRepository.getSetGroup(targetSetGroupId) ?: return null
+        val sourceExerciseId = setGroup.originalExerciseId ?: setGroup.exerciseId
+        val sourceExercise = exerciseRepository.getExercise(sourceExerciseId) ?: return null
+        val alternativeNames = parseAlternativeNames(sourceExercise.notes)
+        if (alternativeNames.isEmpty()) {
+            return null
+        }
+
+        val allExercises = exerciseRepository.exercises.first()
+        val exercisesByName =
+            allExercises.associateBy {
+                it.name.trim().lowercase(Locale.getDefault())
+            }
+
+        return alternativeNames.mapNotNull { alternativeName ->
+            exercisesByName[alternativeName.lowercase(Locale.getDefault())]?.exerciseId
+        }.toSet()
+    }
+
+    private fun parseAlternativeNames(notes: String): List<String> {
+        val marker = "alternatives:"
+        return notes.lines()
+            .map { it.trim() }
+            .firstOrNull { line -> line.lowercase(Locale.getDefault()).startsWith(marker) }
+            ?.substringAfter(':', "")
+            ?.split(',')
+            ?.map { it.trim() }
+            ?.filter { it.isNotEmpty() }
+            .orEmpty()
+    }
 }

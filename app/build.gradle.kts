@@ -133,6 +133,7 @@ dependencies {
     androidTestImplementation("androidx.test:core-ktx:1.6.1")
 
     testImplementation("io.mockk:mockk:1.13.4")
+    testImplementation("org.jetbrains.kotlinx:kotlinx-coroutines-test:1.10.1")
     androidTestImplementation("io.mockk:mockk-android:1.13.4")
 
     testImplementation("junit:junit:4.13.2")

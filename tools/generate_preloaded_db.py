@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import re
 import sqlite3
 from pathlib import Path
 from typing import Any
@@ -14,6 +15,17 @@ DEFAULT_SCHEMA = (
 )
 DEFAULT_OUTPUT = "app/src/main/assets/preloaded/workout_routines_database"
 SET_KINDS = {"normal", "warm_up", "drop"}
+SET_KIND_ALIASES = {
+    "working": "normal",
+    "work": "normal",
+    "regular": "normal",
+    "warmup": "warm_up",
+    "warm-up": "warm_up",
+    "dropset": "drop",
+    "drop-set": "drop",
+    "drop set": "drop",
+}
+DROPSET_PATTERN = re.compile(r"\bdrop[\s-]*set(s)?\b", re.IGNORECASE)
 
 
 def _bool(value: Any, default: bool) -> bool:
@@ -46,6 +58,7 @@ def _set_kind(value: Any) -> str:
     if not isinstance(value, str):
         raise ValueError(f"Expected set kind string, got {value!r}")
     normalized = value.strip().lower()
+    normalized = SET_KIND_ALIASES.get(normalized, normalized)
     if normalized not in SET_KINDS:
         raise ValueError(
             f"Unsupported set kind {value!r}. Allowed values: {sorted(SET_KINDS)}"
@@ -213,7 +226,9 @@ def insert_workout_data(conn: sqlite3.Connection, workout: dict[str, Any]) -> No
                 )
                 next_set_id += 1
 
-            for set_row in sets:
+            drop_on_last_set = DROPSET_PATTERN.search(notes) is not None
+
+            for set_index, set_row in enumerate(sets):
                 if not isinstance(set_row, dict):
                     raise ValueError(f"Each set must be an object: {name}")
 
@@ -221,7 +236,15 @@ def insert_workout_data(conn: sqlite3.Connection, workout: dict[str, Any]) -> No
                 weight = _num_or_none(set_row.get("weight"))
                 time = _num_or_none(set_row.get("time"))
                 distance = _num_or_none(set_row.get("distance"))
-                set_kind = _set_kind(set_row.get("kind"))
+                explicit_kind = (
+                    set_row.get("kind")
+                    or set_row.get("setKind")
+                    or set_row.get("type")
+                )
+                if explicit_kind is None and drop_on_last_set and set_index == len(sets) - 1:
+                    set_kind = "drop"
+                else:
+                    set_kind = _set_kind(explicit_kind)
 
                 conn.execute(
                     """

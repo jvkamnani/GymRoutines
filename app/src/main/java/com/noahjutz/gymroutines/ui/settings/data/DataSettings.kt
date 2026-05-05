@@ -11,7 +11,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.filled.ArrowBack
+import androidx.compose.material.icons.filled.FileDownload
 import androidx.compose.material.icons.filled.SaveAlt
 import androidx.compose.material.icons.filled.SettingsBackupRestore
 import androidx.compose.material3.Icon
@@ -87,6 +87,15 @@ fun DataSettings(
                 }
             }
 
+        val exportWorkoutCsvLauncher =
+            rememberLauncherForActivityResult(
+                ActivityResultContracts.CreateDocument("text/csv"),
+            ) { uri ->
+                if (uri != null) {
+                    viewModel.exportWorkoutHistoryCsv(uri)
+                }
+            }
+
         Column(
             Modifier
                 .verticalScroll(rememberScrollState())
@@ -139,6 +148,17 @@ fun DataSettings(
                 headlineContent = { Text(stringResource(R.string.pref_restore_data)) },
                 supportingContent = { Text(stringResource(R.string.pref_detail_restore_data)) },
                 leadingContent = { Icon(Icons.Default.SettingsBackupRestore, null) },
+            )
+            ListItem(
+                modifier =
+                    Modifier.clickable {
+                        exportWorkoutCsvLauncher.launch(
+                            "gymroutines_workouts_${viewModel.getCurrentTimeIso()}.csv",
+                        )
+                    },
+                headlineContent = { Text(stringResource(R.string.pref_export_workout_csv)) },
+                supportingContent = { Text(stringResource(R.string.pref_detail_export_workout_csv)) },
+                leadingContent = { Icon(Icons.Default.FileDownload, null) },
             )
         }
     }

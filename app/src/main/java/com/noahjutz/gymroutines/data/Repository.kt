@@ -207,4 +207,11 @@ class WorkoutRepository(private val workoutDao: WorkoutDao) {
             }
         }
     }
+
+    suspend fun getMostRecentLoggedSetForExercise(
+        exerciseId: Int,
+        excludeWorkoutId: Int,
+    ): WorkoutSet? {
+        return workoutDao.getMostRecentLoggedSetForExercise(exerciseId, excludeWorkoutId)
+    }
 }

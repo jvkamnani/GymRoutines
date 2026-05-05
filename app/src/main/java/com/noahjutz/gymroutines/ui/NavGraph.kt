@@ -252,6 +252,7 @@ fun NavGraph(
             ) { backStackEntry ->
                 val targetSetGroupId = backStackEntry.arguments?.getInt("targetSetGroupId") ?: -1
                 ExercisePickerSheet(
+                    targetSetGroupId = targetSetGroupId,
                     singleSelect = targetSetGroupId >= 0,
                     onExercisesSelected = { exerciseIds ->
                         val previousState = navController.previousBackStackEntry?.savedStateHandle

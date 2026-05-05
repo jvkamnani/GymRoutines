@@ -92,8 +92,12 @@ val koinModule =
             ExerciseListViewModel(get())
         }
 
-        viewModel {
-            ExercisePickerViewModel(exerciseRepository = get())
+        viewModel { params ->
+            ExercisePickerViewModel(
+                exerciseRepository = get(),
+                workoutRepository = get(),
+                targetSetGroupId = params.getOrNull<Int>() ?: -1,
+            )
         }
 
         viewModel { params ->
@@ -153,6 +157,9 @@ val koinModule =
         viewModel {
             DataSettingsViewModel(
                 database = get(),
+                workoutRepository = get(),
+                routineRepository = get(),
+                exerciseRepository = get(),
                 application = androidApplication(),
                 preferences = get(),
             )

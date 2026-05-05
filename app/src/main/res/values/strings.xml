@@ -27,7 +27,7 @@
     <string name="column_distance">Distance</string>
     <string name="column_set_type">Type</string>
     <string name="column_set_complete">Set Complete</string>
-    <string name="set_kind_normal">Normal</string>
+    <string name="set_kind_normal">Working</string>
     <string name="set_kind_warm_up">Warm-up</string>
     <string name="set_kind_drop">Drop set</string>
     <string name="alert_no_log_value_selected">Please select at least one value.</string>
@@ -82,9 +82,11 @@
     <string name="screen_data_settings">Data</string>
     <string name="pref_back_up_data">Back up data</string>
     <string name="pref_restore_data">Restore data</string>
+    <string name="pref_export_workout_csv">Export workout history (CSV)</string>
     <string name="alert_must_finish_workout">Please finish your workout first.</string>
     <string name="pref_detail_restore_data">Import a database file, overriding all data</string>
     <string name="pref_detail_back_up_data">Save routines, exercises and workouts in a file</string>
+    <string name="pref_detail_export_workout_csv">Export all logged sets as a CSV file</string>
     <string name="screen_general_settings">General</string>
     <string name="pref_reset_settings">Reset all settings</string>
     <string name="dialog_title_reset_settings">Reset all settings?</string>

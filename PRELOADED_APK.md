@@ -24,6 +24,9 @@ Notes on advanced fields:
 - `supersetTag`: same tag across exercises means they are displayed as a superset pair/group
 - `warmupSets`: inserts N warm-up rows before working sets
 - `warmupReps`: optional default reps for inserted warm-up rows
+- if a set omits `kind`, it defaults to `normal` (shown in UI as `Working`)
+- aliases accepted for set kind: `working` -> `normal`, `warmup`/`warm-up` -> `warm_up`, `dropset`/`drop-set`/`drop set` -> `drop`
+- if a set omits `kind` and exercise notes mention `dropset`/`drop set`/`drop-set`, the last set is auto-marked as `drop`
 
 ## 2) Generate DB and build APK
 
