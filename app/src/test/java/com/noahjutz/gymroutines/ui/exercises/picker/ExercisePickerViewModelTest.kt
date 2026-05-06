@@ -67,12 +67,18 @@ class ExercisePickerViewModelTest {
                 )
 
             advanceUntilIdle()
-            val allowedExerciseNames = viewModel.allExercises.first().map { it.name }
+            val allowedExerciseNames =
+                viewModel.allExercises.first { exercises ->
+                    exercises.size == 2
+                }.map { it.name }
             assertThat(allowedExerciseNames)
                 .containsExactlyInAnyOrder("Dumbbell Incline Press", "Smith Machine Incline Press")
 
             viewModel.search("smith")
-            val smithFiltered = viewModel.allExercises.first()
+            val smithFiltered =
+                viewModel.allExercises.first { exercises ->
+                    exercises.size == 1 && exercises.first().name == "Smith Machine Incline Press"
+                }
             assertThat(smithFiltered.map { it.name })
                 .containsExactly("Smith Machine Incline Press")
         }
@@ -115,7 +121,10 @@ class ExercisePickerViewModelTest {
                 )
 
             advanceUntilIdle()
-            val visibleExerciseIds = viewModel.allExercises.first().map { it.exerciseId }
+            val visibleExerciseIds =
+                viewModel.allExercises.first { filtered ->
+                    filtered.size == exercises.size
+                }.map { it.exerciseId }
             assertThat(visibleExerciseIds).containsExactly(300, 21, 22)
         }
 
@@ -158,7 +167,10 @@ class ExercisePickerViewModelTest {
                 )
 
             advanceUntilIdle()
-            val allowedExerciseNames = viewModel.allExercises.first().map { it.name }
+            val allowedExerciseNames =
+                viewModel.allExercises.first { filtered ->
+                    filtered.size == 2
+                }.map { it.name }
             assertThat(allowedExerciseNames)
                 .containsExactlyInAnyOrder("Assisted Pull-Up", "Neutral Grip Pulldown")
         }
