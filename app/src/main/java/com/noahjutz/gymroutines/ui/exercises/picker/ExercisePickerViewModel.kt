@@ -131,7 +131,6 @@ class ExercisePickerViewModel(
         val nonAlphaNumericRegex = Pattern.compile("[^\\p{L}\\p{N}]+")
         return nonAlphaNumericRegex
             .matcher(name.trim().lowercase(Locale.getDefault()))
-            .replaceAll(" ")
-            .trim()
+            .replaceAll("")
     }
 }
