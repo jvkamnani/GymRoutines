@@ -6,6 +6,7 @@
         {
           "name": "Bench Press",
           "notes": "Flat barbell",
+          "rpe": "8-9",
           "alternatives": ["Dumbbell Bench Press", "Machine Chest Press"],
           "warmupSets": 2,
           "warmupReps": 8,
@@ -16,9 +17,9 @@
             "distance": false
           },
           "sets": [
-            { "reps": 10, "weight": 60, "kind": "normal" },
-            { "reps": 8, "weight": 65, "kind": "normal" },
-            { "reps": 6, "weight": 70, "kind": "drop" }
+            { "reps": 10, "weight": 60, "rpe": 8, "notes": "Paused", "kind": "normal" },
+            { "reps": 8, "weight": 65, "rpe": 8.5, "kind": "normal" },
+            { "reps": 6, "weight": 70, "rpe": 9, "kind": "drop" }
           ]
         },
         {

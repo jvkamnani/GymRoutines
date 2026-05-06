@@ -65,7 +65,6 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.noahjutz.gymroutines.R
-import com.noahjutz.gymroutines.data.domain.Routine
 import com.noahjutz.gymroutines.ui.components.SearchBar
 import com.noahjutz.gymroutines.ui.components.SwipeToDeleteBackground
 import com.noahjutz.gymroutines.ui.components.TopBar
@@ -139,7 +138,7 @@ fun RoutineList(
 @ExperimentalMaterialApi
 @Composable
 fun RoutineListContent(
-    routines: List<Routine>,
+    routines: List<RoutineListViewModel.RoutineListEntry>,
     navToRoutineEditor: (Long) -> Unit,
     viewModel: RoutineListViewModel,
 ) {
@@ -157,7 +156,8 @@ fun RoutineListContent(
             )
         }
 
-        items(items = routines, key = { it.routineId }) { routine ->
+        items(items = routines, key = { "${it.routine.routineId}:${it.displayName}" }) { entry ->
+            val routine = entry.routine
             val dismissState = rememberSwipeToDismissBoxState()
 
             SwipeToDismissBox(
@@ -179,9 +179,8 @@ fun RoutineListContent(
                         modifier = Modifier.clickable { navToRoutineEditor(routine.routineId.toLong()) },
                         headlineContent = {
                             Text(
-                                text =
-                                    routine.name.takeIf { it.isNotBlank() }
-                                        ?: stringResource(R.string.unnamed_routine),
+                                text = entry.displayName.takeIf { it.isNotBlank() }
+                                    ?: stringResource(R.string.unnamed_routine),
                                 maxLines = 1,
                                 overflow = TextOverflow.Ellipsis,
                             )

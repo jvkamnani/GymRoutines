@@ -14,13 +14,14 @@ Top-level shape:
 
 - `routines`: array
 - each routine: `name`, `exercises`
-- each exercise: `name`, optional `notes`, optional `alternatives`, optional `supersetTag`, optional `warmupSets`, optional `warmupReps`, optional `track`, `sets`
+- each exercise: `name`, optional `notes`, optional `rpe`, optional `alternatives`, optional `supersetTag`, optional `warmupSets`, optional `warmupReps`, optional `track`, `sets`
 - `track`: booleans `reps`, `weight`, `time`, `distance`
-- each set: optional numeric `reps`, `weight`, `time` (seconds), `distance`, optional `kind` (`normal`, `warm_up`, `drop`)
+- each set: optional numeric `reps`, `weight`, `time` (seconds), `distance`, optional `rpe`, optional `notes`, optional `kind` (`normal`, `warm_up`, `drop`)
 
 Notes on advanced fields:
 
 - `alternatives`: shown in exercise notes for quick swap reference
+- `rpe` and set-level `rpe`/`notes`: appended into the exercise notes block so they are visible during the workout
 - `supersetTag`: same tag across exercises means they are displayed as a superset pair/group
 - `warmupSets`: inserts N warm-up rows before working sets
 - `warmupReps`: optional default reps for inserted warm-up rows

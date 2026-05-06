@@ -27,18 +27,30 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.launch
+import java.util.Locale
 
 class RoutineListViewModel(
     private val repository: RoutineRepository,
 ) : ViewModel() {
+    data class RoutineListEntry(
+        val routine: Routine,
+        val displayName: String,
+    )
+
     private val _nameFilter = MutableStateFlow("")
     val nameFilter = _nameFilter.asStateFlow()
 
-    val routines: Flow<List<Routine>> =
+    val routines: Flow<List<RoutineListEntry>> =
         repository.routines.combine(nameFilter) { routines, filter ->
-            routines.filter { routine ->
-                filter.lowercase() in routine.name.lowercase() && !routine.hidden
-            }
+            val normalizedFilter = filter.trim().lowercase(Locale.getDefault())
+            routines
+                .filter { routine -> !routine.hidden }
+                .flatMap { routine ->
+                    expandRoutineWeekEntries(routine)
+                }.filter { entry ->
+                    normalizedFilter.isEmpty() ||
+                        entry.displayName.lowercase(Locale.getDefault()).contains(normalizedFilter)
+                }
         }
 
     fun setNameFilter(name: String) {
@@ -58,5 +70,51 @@ class RoutineListViewModel(
             val id = repository.insert(Routine())
             onComplete(id)
         }
+    }
+}
+
+internal fun expandRoutineWeekEntries(routine: Routine): List<RoutineListViewModel.RoutineListEntry> {
+    val weekRangeRegex =
+        Regex("\\((?:[Ww]eeks?)\\s*(\\d+)\\s*-\\s*(\\d+)\\)")
+    val match = weekRangeRegex.find(routine.name) ?: return listOf(
+        RoutineListViewModel.RoutineListEntry(
+            routine = routine,
+            displayName =
+                routine.name.takeIf { it.isNotBlank() } ?: "",
+        ),
+    )
+
+    val startWeek = match.groupValues[1].toIntOrNull() ?: return listOf(
+        RoutineListViewModel.RoutineListEntry(
+            routine = routine,
+            displayName =
+                routine.name.takeIf { it.isNotBlank() } ?: "",
+        ),
+    )
+    val endWeek = match.groupValues[2].toIntOrNull() ?: return listOf(
+        RoutineListViewModel.RoutineListEntry(
+            routine = routine,
+            displayName =
+                routine.name.takeIf { it.isNotBlank() } ?: "",
+        ),
+    )
+    if (startWeek > endWeek) return listOf(
+        RoutineListViewModel.RoutineListEntry(
+            routine = routine,
+            displayName =
+                routine.name.takeIf { it.isNotBlank() } ?: "",
+        ),
+    )
+
+    return (startWeek..endWeek).map { week ->
+        val displayName =
+            routine.name.replaceRange(
+                match.range,
+                "(Week $week)",
+            )
+        RoutineListViewModel.RoutineListEntry(
+            routine = routine,
+            displayName = displayName,
+        )
     }
 }

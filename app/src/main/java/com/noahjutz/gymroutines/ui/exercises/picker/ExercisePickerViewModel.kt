@@ -37,6 +37,8 @@ class ExercisePickerViewModel(
     workoutRepository: WorkoutRepository,
     targetSetGroupId: Int,
 ) : ViewModel() {
+    private val alternativesMarkerRegex =
+        Regex("^alternatives?\\s*[:\\-]?\\s*(.*)$", RegexOption.IGNORE_CASE)
     private val _nameFilter = MutableStateFlow("")
     private val exercises = exerciseRepository.exercises
     private val _selectedExercises = MutableStateFlow(emptyList<Exercise>())
@@ -116,15 +118,36 @@ class ExercisePickerViewModel(
     }
 
     private fun parseAlternativeNames(notes: String): List<String> {
-        val marker = "alternatives:"
-        return notes.lines()
-            .map { it.trim() }
-            .firstOrNull { line -> line.lowercase(Locale.getDefault()).startsWith(marker) }
-            ?.substringAfter(':', "")
-            ?.split(',')
-            ?.map { it.trim() }
-            ?.filter { it.isNotEmpty() }
-            .orEmpty()
+        val lines = notes.lines().map { it.trim() }
+        val markerLineIndex = lines.indexOfFirst { line -> alternativesMarkerRegex.matches(line) }
+        if (markerLineIndex < 0) return emptyList()
+
+        val rawAlternatives = mutableListOf<String>()
+        val markerMatch = alternativesMarkerRegex.matchEntire(lines[markerLineIndex])
+        val inlineAlternatives = markerMatch?.groupValues?.getOrNull(1)?.trim().orEmpty()
+        if (inlineAlternatives.isNotEmpty()) {
+            rawAlternatives.add(inlineAlternatives)
+        }
+
+        for (line in lines.drop(markerLineIndex + 1)) {
+            if (line.isBlank()) break
+            val normalizedLine =
+                line
+                    .replace(Regex("^[-*•]+\\s*"), "")
+                    .replace(Regex("^\\d+[.)]\\s*"), "")
+                    .trim()
+            if (normalizedLine.isBlank()) continue
+            if (normalizedLine.contains(':')) break
+            rawAlternatives.add(normalizedLine)
+        }
+
+        val splitRegex = Regex("[,;/|]")
+        return rawAlternatives
+            .flatMap { text ->
+                text.split(splitRegex).map { token -> token.trim() }
+            }
+            .filter { it.isNotEmpty() }
+            .distinctBy { normalizeExerciseLookupKey(it) }
     }
 
     private fun normalizeExerciseLookupKey(name: String): String {

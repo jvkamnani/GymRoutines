@@ -149,6 +149,42 @@ class GeneratePreloadedDbIntegrationTest(unittest.TestCase):
             rows,
         )
 
+    def test_rpe_and_set_notes_are_appended_to_exercise_notes(self) -> None:
+        conn = self._run_generator(
+            {
+                "routines": [
+                    {
+                        "name": "Day 4",
+                        "exercises": [
+                            {
+                                "name": "Front Squat",
+                                "notes": "Keep torso upright.",
+                                "rpe": 8,
+                                "sets": [
+                                    {"reps": 6, "rpe": 8.5, "notes": "Explode up"},
+                                    {"reps": 6, "rpe": 9},
+                                ],
+                            }
+                        ],
+                    }
+                ]
+            },
+        )
+
+        notes = conn.execute(
+            "SELECT notes FROM exercise_table WHERE name = ?",
+            ("Front Squat",),
+        ).fetchone()
+        self.assertIsNotNone(notes)
+        self.assertEqual(
+            "Keep torso upright.\n"
+            "RPE: 8\n"
+            "Set notes:\n"
+            "Set 1: RPE 8.5 | Explode up\n"
+            "Set 2: RPE 9",
+            notes[0],
+        )
+
     def test_invalid_set_kind_fails_generation(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:
             input_path = Path(temp_dir) / "workout.json"

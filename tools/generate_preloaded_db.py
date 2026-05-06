@@ -52,6 +52,15 @@ def _int_or_default(value: Any, default: int) -> int:
     raise ValueError(f"Expected integer, got {value!r}")
 
 
+def _string_or_number_text(value: Any, field_name: str) -> str | None:
+    if value is None:
+        return None
+    if isinstance(value, (str, int, float)):
+        text = str(value).strip()
+        return text or None
+    raise ValueError(f"{field_name} must be a string, number, or null")
+
+
 def _set_kind(value: Any) -> str:
     if value is None:
         return "normal"
@@ -156,15 +165,25 @@ def insert_workout_data(conn: sqlite3.Connection, workout: dict[str, Any]) -> No
             notes = exercise.get("notes", "")
             if not isinstance(notes, str):
                 raise ValueError(f"Exercise notes must be a string: {name}")
-            notes = notes.strip()
+            note_sections: list[str] = []
+            normalized_notes = notes.strip()
+            if normalized_notes:
+                note_sections.append(normalized_notes)
+
+            exercise_rpe = _string_or_number_text(
+                exercise.get("rpe"),
+                f"Exercise rpe ({name})",
+            )
+            if exercise_rpe:
+                note_sections.append(f"RPE: {exercise_rpe}")
 
             alternatives = exercise.get("alternatives", [])
             if alternatives is None:
                 alternatives = []
             if not isinstance(alternatives, list):
                 raise ValueError(f"Exercise alternatives must be an array: {name}")
+            normalized_alts: list[str] = []
             if alternatives:
-                normalized_alts: list[str] = []
                 for alt in alternatives:
                     if not isinstance(alt, str) or not alt.strip():
                         raise ValueError(
@@ -172,9 +191,7 @@ def insert_workout_data(conn: sqlite3.Connection, workout: dict[str, Any]) -> No
                         )
                     normalized_alts.append(alt.strip())
                 alternatives_line = "Alternatives: " + ", ".join(normalized_alts)
-                notes = (
-                    f"{notes}\n{alternatives_line}" if notes else alternatives_line
-                )
+                note_sections.append(alternatives_line)
 
             superset_tag = exercise.get("supersetTag")
             if superset_tag is not None:
@@ -199,6 +216,35 @@ def insert_workout_data(conn: sqlite3.Connection, workout: dict[str, Any]) -> No
             log_weight = _bool(track.get("weight"), False)
             log_time = _bool(track.get("time"), False)
             log_distance = _bool(track.get("distance"), False)
+
+            sets = exercise.get("sets", [])
+            if not isinstance(sets, list):
+                raise ValueError(f"Exercise sets must be an array: {name}")
+
+            set_note_lines: list[str] = []
+            for set_index, set_row in enumerate(sets):
+                if not isinstance(set_row, dict):
+                    raise ValueError(f"Each set must be an object: {name}")
+                set_rpe = _string_or_number_text(
+                    set_row.get("rpe"),
+                    f"Set rpe ({name}, set {set_index + 1})",
+                )
+                set_note = _string_or_number_text(
+                    set_row.get("notes"),
+                    f"Set notes ({name}, set {set_index + 1})",
+                )
+                details = []
+                if set_rpe:
+                    details.append(f"RPE {set_rpe}")
+                if set_note:
+                    details.append(set_note)
+                if details:
+                    set_note_lines.append(f"Set {set_index + 1}: {' | '.join(details)}")
+
+            if set_note_lines:
+                note_sections.append("Set notes:\n" + "\n".join(set_note_lines))
+
+            notes = "\n".join(note_sections)
 
             if key not in exercise_ids:
                 insert_exercise_row(
@@ -256,10 +302,6 @@ def insert_workout_data(conn: sqlite3.Connection, workout: dict[str, Any]) -> No
                 """,
                 (next_routine_id, exercise_id, position, superset_tag, next_group_id),
             )
-
-            sets = exercise.get("sets", [])
-            if not isinstance(sets, list):
-                raise ValueError(f"Exercise sets must be an array: {name}")
 
             for _ in range(warmup_sets):
                 conn.execute(

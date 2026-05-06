@@ -174,6 +174,64 @@ class ExercisePickerViewModelTest {
             assertThat(allowedExerciseNames)
                 .containsExactlyInAnyOrder("Assisted Pull-Up", "Neutral Grip Pulldown")
         }
+
+    @Test
+    fun `supports multiline alternatives metadata with bullets`() =
+        runTest {
+            val sourceExerciseId = 500
+            val setGroupId = 10
+            val exercises =
+                listOf(
+                    Exercise(name = "Cable Chest Press", exerciseId = sourceExerciseId),
+                    Exercise(name = "Machine Chest Press", exerciseId = 41),
+                    Exercise(name = "Dumbbell Bench Press", exerciseId = 42),
+                    Exercise(name = "Weighted Dip", exerciseId = 43),
+                )
+
+            val exerciseRepository = mockk<ExerciseRepository>()
+            val workoutRepository = mockk<WorkoutRepository>()
+
+            every { exerciseRepository.exercises } returns MutableStateFlow(exercises)
+            coEvery { workoutRepository.getSetGroup(setGroupId) } returns
+                WorkoutSetGroup(
+                    workoutId = 1,
+                    exerciseId = sourceExerciseId,
+                    position = 0,
+                    id = setGroupId,
+                )
+            coEvery { exerciseRepository.getExercise(sourceExerciseId) } returns
+                Exercise(
+                    name = "Cable Chest Press",
+                    notes =
+                        """
+                        Alternatives:
+                        - Machine Chest Press
+                        - Dumbbell Bench Press
+                        - Weighted Dip
+                        RPE: 8
+                        """.trimIndent(),
+                    exerciseId = sourceExerciseId,
+                )
+
+            val viewModel =
+                ExercisePickerViewModel(
+                    exerciseRepository = exerciseRepository,
+                    workoutRepository = workoutRepository,
+                    targetSetGroupId = setGroupId,
+                )
+
+            advanceUntilIdle()
+            val allowedExerciseNames =
+                viewModel.allExercises.first { filtered ->
+                    filtered.size == 3
+                }.map { it.name }
+            assertThat(allowedExerciseNames)
+                .containsExactlyInAnyOrder(
+                    "Machine Chest Press",
+                    "Dumbbell Bench Press",
+                    "Weighted Dip",
+                )
+        }
 }
 
 @OptIn(ExperimentalCoroutinesApi::class)
