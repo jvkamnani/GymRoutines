@@ -47,6 +47,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.DragHandle
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
@@ -62,17 +63,15 @@ import androidx.compose.material3.MaterialTheme.typography
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
-import androidx.compose.material3.SwipeToDismissBox
-import androidx.compose.material3.SwipeToDismissBoxValue
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
-import androidx.compose.material3.rememberSwipeToDismissBoxState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -87,10 +86,10 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.noahjutz.gymroutines.R
 import com.noahjutz.gymroutines.data.domain.SetKinds
+import com.noahjutz.gymroutines.data.domain.WorkoutSet
 import com.noahjutz.gymroutines.data.domain.WorkoutWithSetGroups
 import com.noahjutz.gymroutines.data.domain.duration
 import com.noahjutz.gymroutines.ui.components.AutoSelectTextField
-import com.noahjutz.gymroutines.ui.components.SwipeToDeleteBackground
 import com.noahjutz.gymroutines.ui.components.TopBar
 import com.noahjutz.gymroutines.ui.components.durationVisualTransformation
 import com.noahjutz.gymroutines.util.RegexPatterns
@@ -177,6 +176,8 @@ private fun WorkoutInProgressContent(
     navToWorkoutCompleted: (Int, Int) -> Unit,
 ) {
     var showFinishWorkoutDialog by remember { mutableStateOf(false) }
+    var pendingDeleteSet by remember { mutableStateOf<WorkoutSet?>(null) }
+    var showDeleteSetFinalConfirmation by remember { mutableStateOf(false) }
     if (showFinishWorkoutDialog) {
         FinishWorkoutDialog(
             onDismiss = { showFinishWorkoutDialog = false },
@@ -184,6 +185,25 @@ private fun WorkoutInProgressContent(
                 viewModel.finishWorkout {
                     navToWorkoutCompleted(workout.workout.workoutId, workout.workout.routineId)
                 }
+            },
+        )
+    }
+    if (pendingDeleteSet != null && !showDeleteSetFinalConfirmation) {
+        ConfirmDeleteSetDialog(
+            onDismiss = { pendingDeleteSet = null },
+            onContinue = { showDeleteSetFinalConfirmation = true },
+        )
+    }
+    if (pendingDeleteSet != null && showDeleteSetFinalConfirmation) {
+        ConfirmDeleteSetFinalDialog(
+            onDismiss = {
+                pendingDeleteSet = null
+                showDeleteSetFinalConfirmation = false
+            },
+            onConfirm = {
+                pendingDeleteSet?.let(viewModel::deleteSet)
+                pendingDeleteSet = null
+                showDeleteSetFinalConfirmation = false
             },
         )
     }
@@ -228,8 +248,18 @@ private fun WorkoutInProgressContent(
                 .collectAsState(initial = null)
             val originalExercise by viewModel.getExercise(setGroup.group.originalExerciseId ?: -1)
                 .collectAsState(initial = null)
+            val previousSets by produceState(
+                initialValue = emptyList(),
+                key1 = setGroup.group.exerciseId,
+                key2 = workout.workout.workoutId,
+            ) {
+                value = viewModel.getMostRecentSetsForExercise(setGroup.group.exerciseId)
+            }
+            val orderedSets = remember(setGroup.sets) { setGroup.sets.sortedBy { it.workoutSetId } }
             val warmupRange = parseWarmupSetRange(exercise?.notes)
-            val currentWarmupCount = setGroup.sets.count { it.setKind == SetKinds.WARM_UP }
+            val currentWarmupCount = orderedSets.count { it.setKind == SetKinds.WARM_UP }
+            val repTarget = workingRepTarget(orderedSets)
+            val referenceWorkingWeight = workingWeightReference(previousSets)
             ElevatedCard(
                 Modifier
                     .fillMaxWidth()
@@ -506,21 +536,45 @@ private fun WorkoutInProgressContent(
                                     stringResource(R.string.column_set_complete),
                                 )
                             }
+                            Box(
+                                Modifier
+                                    .padding(4.dp)
+                                    .size(56.dp)
+                                    .clip(RoundedCornerShape(8.dp))
+                                    .background(colorScheme.primary.copy(alpha = 0.1f)),
+                                contentAlignment = Alignment.Center,
+                            ) {
+                                Icon(
+                                    Icons.Default.Delete,
+                                    stringResource(R.string.btn_delete),
+                                )
+                            }
                         }
-                        for (set in setGroup.sets) {
+                        for (set in orderedSets) {
                             key(set.workoutSetId) {
-                                val dismissState = rememberSwipeToDismissBoxState()
-                                LaunchedEffect(dismissState.currentValue) {
-                                    if (dismissState.currentValue != SwipeToDismissBoxValue.Settled) {
-                                        viewModel.deleteSet(set)
-                                        dismissState.snapTo(SwipeToDismissBoxValue.Settled)
+                                val warmupIndex =
+                                    orderedSets
+                                        .filter { it.setKind == SetKinds.WARM_UP }
+                                        .indexOfFirst { it.workoutSetId == set.workoutSetId }
+                                val warmupRecommendation =
+                                    if (set.setKind == SetKinds.WARM_UP && warmupIndex >= 0) {
+                                        recommendedWarmup(
+                                            warmupIndex = warmupIndex,
+                                            warmupCount = currentWarmupCount,
+                                            workingRepTarget = repTarget,
+                                        )
+                                    } else {
+                                        null
                                     }
-                                }
-                                SwipeToDismissBox(
-                                    state = dismissState,
-                                    backgroundContent = { SwipeToDeleteBackground(dismissState) },
-                                ) {
-                                    Surface {
+                                val previousSet =
+                                    findComparablePreviousSet(
+                                        currentSet = set,
+                                        currentSets = orderedSets,
+                                        previousSets = previousSets,
+                                    )
+                                val previousSetText = previousSet?.let(::buildSetHistoryHint)
+                                Surface {
+                                    Column {
                                         Row(
                                             Modifier.padding(horizontal = 4.dp),
                                         ) {
@@ -747,6 +801,78 @@ private fun WorkoutInProgressContent(
                                                     )
                                                 }
                                             }
+                                            Box(
+                                                Modifier
+                                                    .padding(4.dp)
+                                                    .size(56.dp)
+                                                    .clip(RoundedCornerShape(8.dp))
+                                                    .background(colorScheme.error.copy(alpha = 0.12f)),
+                                                contentAlignment = Alignment.Center,
+                                            ) {
+                                                IconButton(
+                                                    onClick = {
+                                                        pendingDeleteSet = set
+                                                        showDeleteSetFinalConfirmation = false
+                                                    },
+                                                ) {
+                                                    Icon(
+                                                        Icons.Default.Delete,
+                                                        stringResource(R.string.btn_delete),
+                                                        tint = colorScheme.error,
+                                                    )
+                                                }
+                                            }
+                                        }
+                                        val hintLines = mutableListOf<String>()
+                                        if (warmupRecommendation != null) {
+                                            val targetWeightText =
+                                                referenceWorkingWeight?.let { workingWeight ->
+                                                    (workingWeight * warmupRecommendation.percentOfWorkingWeight / 100.0)
+                                                        .formatSimple()
+                                                }
+                                            hintLines.add(
+                                                if (targetWeightText != null) {
+                                                    stringResource(
+                                                        R.string.label_warmup_target_with_weight,
+                                                        warmupRecommendation.percentOfWorkingWeight,
+                                                        targetWeightText,
+                                                    )
+                                                } else {
+                                                    stringResource(
+                                                        R.string.label_warmup_target_percent_only,
+                                                        warmupRecommendation.percentOfWorkingWeight,
+                                                    )
+                                                },
+                                            )
+                                            warmupRecommendation.reps?.let { reps ->
+                                                hintLines.add(
+                                                    stringResource(
+                                                        R.string.label_warmup_reps_target,
+                                                        reps,
+                                                    ),
+                                                )
+                                            }
+                                        }
+                                        if (!previousSetText.isNullOrBlank()) {
+                                            hintLines.add(
+                                                stringResource(
+                                                    R.string.label_last_time_set,
+                                                    previousSetText,
+                                                ),
+                                            )
+                                        }
+                                        if (hintLines.isNotEmpty()) {
+                                            Text(
+                                                text = hintLines.joinToString(" | "),
+                                                modifier =
+                                                    Modifier.padding(
+                                                        start = 12.dp,
+                                                        end = 12.dp,
+                                                        bottom = 8.dp,
+                                                    ),
+                                                style = typography.bodySmall,
+                                                color = colorScheme.onSurface.copy(alpha = 0.75f),
+                                            )
                                         }
                                     }
                                 }
@@ -818,6 +944,58 @@ private fun setKindLabelRes(setKind: String): Int {
         SetKinds.DROP -> R.string.set_kind_drop
         else -> R.string.set_kind_normal
     }
+}
+
+@Composable
+private fun ConfirmDeleteSetDialog(
+    onDismiss: () -> Unit,
+    onContinue: () -> Unit,
+) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(stringResource(R.string.dialog_title_delete_set)) },
+        text = { Text(stringResource(R.string.dialog_message_delete_set_first)) },
+        confirmButton = {
+            Button(onClick = onContinue) {
+                Text(
+                    stringResource(R.string.btn_continue),
+                )
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text(
+                    stringResource(R.string.btn_cancel),
+                )
+            }
+        },
+    )
+}
+
+@Composable
+private fun ConfirmDeleteSetFinalDialog(
+    onDismiss: () -> Unit,
+    onConfirm: () -> Unit,
+) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(stringResource(R.string.dialog_title_delete_set_final)) },
+        text = { Text(stringResource(R.string.dialog_message_delete_set_final)) },
+        confirmButton = {
+            Button(onClick = onConfirm) {
+                Text(
+                    stringResource(R.string.btn_delete),
+                )
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text(
+                    stringResource(R.string.btn_cancel),
+                )
+            }
+        },
+    )
 }
 
 @Composable

@@ -222,6 +222,33 @@ class GeneratePreloadedDbIntegrationTest(unittest.TestCase):
         self.assertIsNotNone(notes)
         self.assertIn("Warm-up range: 2-3", notes[0])
 
+    def test_warmup_reps_follow_two_set_guidance(self) -> None:
+        conn = self._run_generator(
+            {
+                "routines": [
+                    {
+                        "name": "Day 6",
+                        "exercises": [
+                            {
+                                "name": "Incline Press",
+                                "warmupSets": 2,
+                                "warmupReps": 12,
+                                "sets": [{"reps": 10}],
+                            }
+                        ],
+                    }
+                ]
+            },
+        )
+
+        warmup_reps = [
+            row[0]
+            for row in conn.execute(
+                "SELECT reps FROM routine_set_table WHERE setKind = 'warm_up' ORDER BY routineSetId",
+            ).fetchall()
+        ]
+        self.assertEqual([12, 10], warmup_reps)
+
     def test_invalid_set_kind_fails_generation(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:
             input_path = Path(temp_dir) / "workout.json"

@@ -44,17 +44,13 @@ import androidx.compose.material3.MaterialTheme.colorScheme
 import androidx.compose.material3.MaterialTheme.typography
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
-import androidx.compose.material3.SwipeToDismissBox
-import androidx.compose.material3.SwipeToDismissBoxValue
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
-import androidx.compose.material3.rememberSwipeToDismissBoxState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -66,9 +62,7 @@ import com.noahjutz.gymroutines.R
 import com.noahjutz.gymroutines.data.domain.Workout
 import com.noahjutz.gymroutines.data.domain.duration
 import com.noahjutz.gymroutines.ui.components.SimpleLineChart
-import com.noahjutz.gymroutines.ui.components.SwipeToDeleteBackground
 import com.noahjutz.gymroutines.ui.components.TopBar
-import kotlinx.coroutines.launch
 import org.koin.androidx.compose.getViewModel
 import kotlin.time.ExperimentalTime
 
@@ -104,9 +98,42 @@ fun WorkoutInsights(
             )
         },
     ) { paddingValues ->
-        val scope = rememberCoroutineScope()
         val workouts by viewModel.workouts.collectAsState(initial = null)
         val routineNames by viewModel.routineNames.collectAsState(initial = null)
+        var pendingDeleteWorkout by remember { mutableStateOf<Workout?>(null) }
+        var showDeleteWorkoutFinalConfirmation by remember { mutableStateOf(false) }
+
+        val pendingDeleteWorkoutName =
+            pendingDeleteWorkout?.workoutId?.let { workoutId ->
+                routineNames?.get(workoutId)?.takeIf { it.isNotBlank() }
+            } ?: stringResource(R.string.unnamed_routine)
+
+        if (pendingDeleteWorkout != null && !showDeleteWorkoutFinalConfirmation) {
+            DeleteConfirmation(
+                name = pendingDeleteWorkoutName,
+                onConfirm = { showDeleteWorkoutFinalConfirmation = true },
+                onDismiss = { pendingDeleteWorkout = null },
+                confirmLabel = stringResource(R.string.btn_continue),
+                message = stringResource(R.string.dialog_message_delete_workout_first),
+            )
+        }
+
+        if (pendingDeleteWorkout != null && showDeleteWorkoutFinalConfirmation) {
+            DeleteConfirmation(
+                name = pendingDeleteWorkoutName,
+                onConfirm = {
+                    pendingDeleteWorkout?.let(viewModel::delete)
+                    pendingDeleteWorkout = null
+                    showDeleteWorkoutFinalConfirmation = false
+                },
+                onDismiss = {
+                    pendingDeleteWorkout = null
+                    showDeleteWorkoutFinalConfirmation = false
+                },
+                confirmLabel = stringResource(R.string.btn_delete),
+                message = stringResource(R.string.dialog_message_delete_workout_final),
+            )
+        }
 
         LazyColumn(contentPadding = paddingValues) {
             item {
@@ -127,62 +154,46 @@ fun WorkoutInsights(
 
             if (workouts != null && routineNames != null) {
                 items(workouts ?: emptyList(), { it.workoutId }) { workout ->
-                    val dismissState = rememberSwipeToDismissBoxState()
                     val routineName =
                         routineNames?.get(workout.workoutId)?.takeIf { it.isNotBlank() }
                             ?: stringResource(R.string.unnamed_routine)
 
-                    SwipeToDismissBox(
-                        // modifier = Modifier.zIndex(if (dismissState.offset.value == 0f) 0f else 1f),
-                        state = dismissState,
-                        backgroundContent = { SwipeToDeleteBackground(dismissState) },
+                    Card(
+                        onClick = { navToWorkoutEditor(workout.workoutId) },
+                        elevation =
+                            CardDefaults.cardElevation(
+                                defaultElevation = 0.dp,
+                                draggedElevation = 4.dp,
+                            ),
                     ) {
-                        Card(
-                            onClick = { navToWorkoutEditor(workout.workoutId) },
-                            elevation =
-                                CardDefaults.cardElevation(
-                                    defaultElevation = 0.dp,
-                                    draggedElevation = 4.dp,
-                                ),
-                        ) {
-                            ListItem(headlineContent = {
-                                Text(
-                                    text = routineName,
-                                    maxLines = 2,
-                                    overflow = TextOverflow.Ellipsis,
-                                )
-                            }, trailingContent = {
-                                var expanded by remember { mutableStateOf(false) }
+                        ListItem(headlineContent = {
+                            Text(
+                                text = routineName,
+                                maxLines = 2,
+                                overflow = TextOverflow.Ellipsis,
+                            )
+                        }, trailingContent = {
+                            var expanded by remember { mutableStateOf(false) }
 
-                                Box {
-                                    IconButton(onClick = { expanded = !expanded }) {
-                                        Icon(Icons.Default.MoreVert, null)
-                                    }
-
-                                    DropdownMenu(
-                                        expanded = expanded,
-                                        onDismissRequest = { expanded = false },
-                                    ) {
-                                        DropdownMenuItem(onClick = {
-                                            expanded = false
-                                            scope.launch {
-                                                dismissState.dismiss(SwipeToDismissBoxValue.StartToEnd)
-                                            }
-                                        }, text = {
-                                            Text(stringResource(R.string.btn_delete))
-                                        })
-                                    }
+                            Box {
+                                IconButton(onClick = { expanded = !expanded }) {
+                                    Icon(Icons.Default.MoreVert, null)
                                 }
-                            })
-                        }
-                    }
 
-                    if (dismissState.targetValue != SwipeToDismissBoxValue.Settled) {
-                        DeleteConfirmation(
-                            name = routineName,
-                            onConfirm = { viewModel.delete(workout) },
-                            onDismiss = { scope.launch { dismissState.reset() } },
-                        )
+                                DropdownMenu(
+                                    expanded = expanded,
+                                    onDismissRequest = { expanded = false },
+                                ) {
+                                    DropdownMenuItem(onClick = {
+                                        expanded = false
+                                        pendingDeleteWorkout = workout
+                                        showDeleteWorkoutFinalConfirmation = false
+                                    }, text = {
+                                        Text(stringResource(R.string.btn_delete))
+                                    })
+                                }
+                            }
+                        })
                     }
                 }
             } else {
@@ -202,6 +213,8 @@ fun WorkoutInsights(
 @Composable
 private fun DeleteConfirmation(
     name: String,
+    message: String,
+    confirmLabel: String,
     onConfirm: () -> Unit,
     onDismiss: () -> Unit,
 ) {
@@ -214,10 +227,11 @@ private fun DeleteConfirmation(
                 ),
             )
         },
+        text = { Text(message) },
         confirmButton = {
             Button(
                 onClick = onConfirm,
-                content = { Text(stringResource(R.string.btn_delete)) },
+                content = { Text(confirmLabel) },
             )
         },
         dismissButton = {

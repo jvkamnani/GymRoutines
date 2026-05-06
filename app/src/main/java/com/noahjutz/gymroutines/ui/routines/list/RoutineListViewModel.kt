@@ -35,6 +35,7 @@ class RoutineListViewModel(
     data class RoutineListEntry(
         val routine: Routine,
         val displayName: String,
+        val isCompleted: Boolean,
     )
 
     private val _nameFilter = MutableStateFlow("")
@@ -43,7 +44,8 @@ class RoutineListViewModel(
     val routines: Flow<List<RoutineListEntry>> =
         repository.routines.combine(nameFilter) { routines, filter ->
             val normalizedFilter = filter.trim().lowercase(Locale.getDefault())
-            routines
+            val sortedEntries =
+                routines
                 .filter { routine -> !routine.hidden }
                 .flatMap { routine ->
                     expandRoutineWeekEntries(routine)
@@ -51,6 +53,10 @@ class RoutineListViewModel(
                     normalizedFilter.isEmpty() ||
                         entry.displayName.lowercase(Locale.getDefault()).contains(normalizedFilter)
                 }.let(::sortRoutineEntries)
+
+            sortedEntries.map { entry ->
+                entry.copy(isCompleted = isEntryCompletedOnLanding(entry))
+            }
         }
 
     fun setNameFilter(name: String) {
@@ -81,6 +87,7 @@ internal fun expandRoutineWeekEntries(routine: Routine): List<RoutineListViewMod
             routine = routine,
             displayName =
                 routine.name.takeIf { it.isNotBlank() } ?: "",
+            isCompleted = false,
         ),
     )
 
@@ -89,6 +96,7 @@ internal fun expandRoutineWeekEntries(routine: Routine): List<RoutineListViewMod
             routine = routine,
             displayName =
                 routine.name.takeIf { it.isNotBlank() } ?: "",
+            isCompleted = false,
         ),
     )
     val endWeek = match.groupValues[2].toIntOrNull() ?: return listOf(
@@ -96,6 +104,7 @@ internal fun expandRoutineWeekEntries(routine: Routine): List<RoutineListViewMod
             routine = routine,
             displayName =
                 routine.name.takeIf { it.isNotBlank() } ?: "",
+            isCompleted = false,
         ),
     )
     if (startWeek > endWeek) return listOf(
@@ -103,6 +112,7 @@ internal fun expandRoutineWeekEntries(routine: Routine): List<RoutineListViewMod
             routine = routine,
             displayName =
                 routine.name.takeIf { it.isNotBlank() } ?: "",
+            isCompleted = false,
         ),
     )
 
@@ -115,6 +125,7 @@ internal fun expandRoutineWeekEntries(routine: Routine): List<RoutineListViewMod
         RoutineListViewModel.RoutineListEntry(
             routine = routine,
             displayName = displayName,
+            isCompleted = false,
         )
     }
 }
@@ -125,12 +136,14 @@ internal data class EntrySortKey(
     val weekInRangeStart: Int?,
 )
 
-private val weekRegex = Regex("\\(\\s*[Ww]eek\\s*(\\d+)\\s*\\)")
+private val weekRegex = Regex("\\b[Ww]eek\\s*(\\d+)\\b")
 private val weekRangeRegex = Regex("\\(\\s*[Ww]eeks?\\s*(\\d+)\\s*-\\s*(\\d+)\\s*\\)")
 private val upperARegex = Regex("\\bUpper\\s*A\\b", RegexOption.IGNORE_CASE)
 private val lowerARegex = Regex("\\bLower\\s*A\\b", RegexOption.IGNORE_CASE)
 private val upperBRegex = Regex("\\bUpper\\s*B\\b", RegexOption.IGNORE_CASE)
 private val lowerBRegex = Regex("\\bLower\\s*B\\b", RegexOption.IGNORE_CASE)
+private const val completedUpToWeek = 6
+private const val completedUpToDayOrder = 0 // Upper A
 
 internal fun entrySortKey(entry: RoutineListViewModel.RoutineListEntry): EntrySortKey {
     val displayName = entry.displayName
@@ -164,4 +177,12 @@ internal fun sortRoutineEntries(
             .thenBy { it.routine.routineId }
             .thenBy { it.displayName.lowercase(Locale.getDefault()) },
     )
+}
+
+internal fun isEntryCompletedOnLanding(entry: RoutineListViewModel.RoutineListEntry): Boolean {
+    val key = entrySortKey(entry)
+    val week = key.week ?: return false
+    if (key.dayOrder == 99) return false
+    return week < completedUpToWeek ||
+        (week == completedUpToWeek && key.dayOrder <= completedUpToDayOrder)
 }

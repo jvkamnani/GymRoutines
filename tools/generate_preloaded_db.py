@@ -28,6 +28,12 @@ SET_KIND_ALIASES = {
 DROPSET_PATTERN = re.compile(r"\bdrop[\s-]*set(s)?\b", re.IGNORECASE)
 WARMUP_RANGE_PATTERN = re.compile(r"^\s*(\d+)\s*-\s*(\d+)\s*$")
 
+WARMUP_REP_OFFSETS = {
+    1: [0],
+    2: [0, 2],
+    3: [0, 2, 4],
+}
+
 
 def _bool(value: Any, default: bool) -> bool:
     if value is None:
@@ -102,6 +108,17 @@ def _set_kind(value: Any) -> str:
             f"Unsupported set kind {value!r}. Allowed values: {sorted(SET_KINDS)}"
         )
     return normalized
+
+
+def _warmup_reps_for_slot(base_reps: int | None, warmup_count: int, slot_index: int) -> int | None:
+    if base_reps is None:
+        return None
+    offsets = WARMUP_REP_OFFSETS.get(warmup_count)
+    if not offsets:
+        return base_reps
+    offset = offsets[min(slot_index, len(offsets) - 1)]
+    reps = base_reps - offset
+    return max(1, reps)
 
 
 def load_json(path: Path) -> dict[str, Any]:
@@ -337,7 +354,13 @@ def insert_workout_data(conn: sqlite3.Connection, workout: dict[str, Any]) -> No
                 (next_routine_id, exercise_id, position, superset_tag, next_group_id),
             )
 
-            for _ in range(warmup_sets_max):
+            warmup_reps_int = int(warmup_reps) if isinstance(warmup_reps, (int, float)) else None
+            for warmup_index in range(warmup_sets_max):
+                warmup_set_reps = _warmup_reps_for_slot(
+                    base_reps=warmup_reps_int,
+                    warmup_count=warmup_sets_max,
+                    slot_index=warmup_index,
+                )
                 conn.execute(
                     """
                     INSERT INTO routine_set_table
@@ -346,7 +369,7 @@ def insert_workout_data(conn: sqlite3.Connection, workout: dict[str, Any]) -> No
                     """,
                     (
                         next_group_id,
-                        warmup_reps,
+                        warmup_set_reps,
                         None,
                         None,
                         None,

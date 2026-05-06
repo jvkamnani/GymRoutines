@@ -80,6 +80,14 @@ class WorkoutInProgressViewModel(
         return exerciseRepository.getExerciseFlow(exerciseId)
     }
 
+    suspend fun getMostRecentSetsForExercise(exerciseId: Int): List<WorkoutSet> {
+        val activeWorkoutId = _workout?.workout?.workoutId ?: return emptyList()
+        return workoutRepository.getMostRecentSetsForExercise(
+            exerciseId = exerciseId,
+            excludeWorkoutId = activeWorkoutId,
+        )
+    }
+
     fun deleteSet(set: WorkoutSet) {
         viewModelScope.launch {
             workoutRepository.delete(set)

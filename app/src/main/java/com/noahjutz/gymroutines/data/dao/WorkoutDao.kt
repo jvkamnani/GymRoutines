@@ -105,4 +105,27 @@ interface WorkoutDao {
         exerciseId: Int,
         excludeWorkoutId: Int,
     ): WorkoutSet?
+
+    @Query(
+        """
+        SELECT ws.* FROM workout_set_table ws
+        INNER JOIN workout_set_group_table g ON g.id = ws.groupId
+        WHERE g.workoutId = (
+            SELECT w.workoutId FROM workout_table w
+            INNER JOIN workout_set_group_table g2 ON g2.workoutId = w.workoutId
+            INNER JOIN workout_set_table ws2 ON ws2.groupId = g2.id
+            WHERE g2.exerciseId = :exerciseId
+              AND w.workoutId != :excludeWorkoutId
+              AND (ws2.reps IS NOT NULL OR ws2.weight IS NOT NULL OR ws2.time IS NOT NULL OR ws2.distance IS NOT NULL)
+            ORDER BY w.endTime DESC
+            LIMIT 1
+        )
+        AND g.exerciseId = :exerciseId
+        ORDER BY ws.workoutSetId ASC
+        """,
+    )
+    suspend fun getMostRecentSetsForExercise(
+        exerciseId: Int,
+        excludeWorkoutId: Int,
+    ): List<WorkoutSet>
 }
