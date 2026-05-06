@@ -23,7 +23,7 @@ Notes on advanced fields:
 - `alternatives`: shown in exercise notes for quick swap reference
 - `rpe` and set-level `rpe`/`notes`: appended into the exercise notes block so they are visible during the workout
 - `supersetTag`: same tag across exercises means they are displayed as a superset pair/group
-- `warmupSets`: inserts N warm-up rows before working sets
+- `warmupSets`: accepts an integer (`2`) or range (`1-2`, `2-3`); ranges default to the upper bound and include a `Warm-up range` note for in-workout toggles
 - `warmupReps`: optional default reps for inserted warm-up rows
 - if a set omits `kind`, it defaults to `normal` (shown in UI as `Working`)
 - aliases accepted for set kind: `working` -> `normal`, `warmup`/`warm-up` -> `warm_up`, `dropset`/`drop-set`/`drop set` -> `drop`

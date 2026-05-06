@@ -8,7 +8,7 @@
           "notes": "Flat barbell",
           "rpe": "8-9",
           "alternatives": ["Dumbbell Bench Press", "Machine Chest Press"],
-          "warmupSets": 2,
+          "warmupSets": "1-2",
           "warmupReps": 8,
           "track": {
             "reps": true,

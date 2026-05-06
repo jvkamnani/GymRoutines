@@ -74,6 +74,9 @@ interface WorkoutDao {
     @Delete
     suspend fun delete(workoutSet: WorkoutSet)
 
+    @Query("DELETE FROM workout_set_table WHERE groupId == :groupId")
+    suspend fun deleteSetsInGroup(groupId: Int)
+
     @Delete
     suspend fun delete(workoutSetGroup: WorkoutSetGroup)
 

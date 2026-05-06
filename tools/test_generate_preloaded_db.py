@@ -185,6 +185,43 @@ class GeneratePreloadedDbIntegrationTest(unittest.TestCase):
             notes[0],
         )
 
+    def test_warmup_range_defaults_to_upper_bound_and_tracks_metadata(self) -> None:
+        conn = self._run_generator(
+            {
+                "routines": [
+                    {
+                        "name": "Day 5",
+                        "exercises": [
+                            {
+                                "name": "Romanian Deadlift",
+                                "warmupSets": "2-3",
+                                "warmupReps": 8,
+                                "sets": [
+                                    {"reps": 8},
+                                    {"reps": 8},
+                                ],
+                            }
+                        ],
+                    }
+                ]
+            },
+        )
+
+        kinds = [
+            row[0]
+            for row in conn.execute(
+                "SELECT setKind FROM routine_set_table ORDER BY routineSetId",
+            ).fetchall()
+        ]
+        self.assertEqual(["warm_up", "warm_up", "warm_up", "normal", "normal"], kinds)
+
+        notes = conn.execute(
+            "SELECT notes FROM exercise_table WHERE name = ?",
+            ("Romanian Deadlift",),
+        ).fetchone()
+        self.assertIsNotNone(notes)
+        self.assertIn("Warm-up range: 2-3", notes[0])
+
     def test_invalid_set_kind_fails_generation(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:
             input_path = Path(temp_dir) / "workout.json"
@@ -226,6 +263,49 @@ class GeneratePreloadedDbIntegrationTest(unittest.TestCase):
 
         self.assertNotEqual(0, result.returncode)
         self.assertIn("Unsupported set kind", result.stderr)
+
+    def test_descending_warmup_range_fails_generation(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            input_path = Path(temp_dir) / "workout.json"
+            output_db = Path(temp_dir) / "workout_routines_database"
+            input_path.write_text(
+                json.dumps(
+                    {
+                        "routines": [
+                            {
+                                "name": "Invalid warm-up range",
+                                "exercises": [
+                                    {
+                                        "name": "Squat",
+                                        "warmupSets": "3-2",
+                                        "sets": [{"reps": 5}],
+                                    }
+                                ],
+                            }
+                        ]
+                    },
+                ),
+                encoding="utf-8",
+            )
+
+            result = subprocess.run(
+                [
+                    "python3",
+                    str(SCRIPT),
+                    "--input",
+                    str(input_path),
+                    "--schema",
+                    str(SCHEMA),
+                    "--output",
+                    str(output_db),
+                ],
+                capture_output=True,
+                text=True,
+                cwd=ROOT,
+            )
+
+        self.assertNotEqual(0, result.returncode)
+        self.assertIn("warmupSets range must be ascending", result.stderr)
 
 
 if __name__ == "__main__":

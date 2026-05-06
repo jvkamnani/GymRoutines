@@ -26,6 +26,7 @@ SET_KIND_ALIASES = {
     "drop set": "drop",
 }
 DROPSET_PATTERN = re.compile(r"\bdrop[\s-]*set(s)?\b", re.IGNORECASE)
+WARMUP_RANGE_PATTERN = re.compile(r"^\s*(\d+)\s*-\s*(\d+)\s*$")
 
 
 def _bool(value: Any, default: bool) -> bool:
@@ -44,12 +45,40 @@ def _num_or_none(value: Any) -> int | float | None:
     raise ValueError(f"Expected number or null, got {value!r}")
 
 
-def _int_or_default(value: Any, default: int) -> int:
+def _warmup_set_bounds(
+    value: Any,
+    exercise_name: str,
+) -> tuple[int, int]:
     if value is None:
-        return default
+        return (0, 0)
     if isinstance(value, int):
-        return value
-    raise ValueError(f"Expected integer, got {value!r}")
+        if value < 0:
+            raise ValueError(f"warmupSets must be >= 0: {exercise_name}")
+        return (value, value)
+    if isinstance(value, str):
+        text = value.strip()
+        if not text:
+            raise ValueError(
+                f"warmupSets string must not be empty: {exercise_name}"
+            )
+        if text.isdigit():
+            parsed = int(text)
+            return (parsed, parsed)
+        match = WARMUP_RANGE_PATTERN.fullmatch(text)
+        if not match:
+            raise ValueError(
+                f"warmupSets string must be an integer or range like 1-2: {exercise_name}"
+            )
+        lower = int(match.group(1))
+        upper = int(match.group(2))
+        if lower > upper:
+            raise ValueError(
+                f"warmupSets range must be ascending (e.g. 1-2): {exercise_name}"
+            )
+        return (lower, upper)
+    raise ValueError(
+        f"warmupSets must be an integer, string range, or null: {exercise_name}"
+    )
 
 
 def _string_or_number_text(value: Any, field_name: str) -> str | None:
@@ -201,10 +230,15 @@ def insert_workout_data(conn: sqlite3.Connection, workout: dict[str, Any]) -> No
                     )
                 superset_tag = superset_tag.strip()
 
-            warmup_sets = _int_or_default(exercise.get("warmupSets"), 0)
-            if warmup_sets < 0:
-                raise ValueError(f"warmupSets must be >= 0: {name}")
+            warmup_sets_min, warmup_sets_max = _warmup_set_bounds(
+                exercise.get("warmupSets"),
+                name,
+            )
             warmup_reps = _num_or_none(exercise.get("warmupReps"))
+            if warmup_sets_min != warmup_sets_max:
+                note_sections.append(
+                    f"Warm-up range: {warmup_sets_min}-{warmup_sets_max}"
+                )
 
             track = exercise.get("track", {})
             if track is None:
@@ -303,7 +337,7 @@ def insert_workout_data(conn: sqlite3.Connection, workout: dict[str, Any]) -> No
                 (next_routine_id, exercise_id, position, superset_tag, next_group_id),
             )
 
-            for _ in range(warmup_sets):
+            for _ in range(warmup_sets_max):
                 conn.execute(
                     """
                     INSERT INTO routine_set_table

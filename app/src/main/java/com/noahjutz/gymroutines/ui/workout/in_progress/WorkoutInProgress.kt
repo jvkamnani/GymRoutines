@@ -228,6 +228,8 @@ private fun WorkoutInProgressContent(
                 .collectAsState(initial = null)
             val originalExercise by viewModel.getExercise(setGroup.group.originalExerciseId ?: -1)
                 .collectAsState(initial = null)
+            val warmupRange = parseWarmupSetRange(exercise?.notes)
+            val currentWarmupCount = setGroup.sets.count { it.setKind == SetKinds.WARM_UP }
             ElevatedCard(
                 Modifier
                     .fillMaxWidth()
@@ -317,6 +319,34 @@ private fun WorkoutInProgressContent(
                                             },
                                             text = {
                                                 Text(stringResource(R.string.btn_clear_alternate_exercise))
+                                            },
+                                        )
+                                    }
+                                    if (warmupRange != null && currentWarmupCount > warmupRange.minimum) {
+                                        DropdownMenuItem(
+                                            onClick = {
+                                                expanded = false
+                                                viewModel.setWarmupSetCount(
+                                                    setGroup = setGroup,
+                                                    targetWarmupCount = warmupRange.minimum,
+                                                )
+                                            },
+                                            text = {
+                                                Text(stringResource(R.string.btn_use_minimum_warm_up))
+                                            },
+                                        )
+                                    }
+                                    if (warmupRange != null && currentWarmupCount < warmupRange.maximum) {
+                                        DropdownMenuItem(
+                                            onClick = {
+                                                expanded = false
+                                                viewModel.setWarmupSetCount(
+                                                    setGroup = setGroup,
+                                                    targetWarmupCount = warmupRange.maximum,
+                                                )
+                                            },
+                                            text = {
+                                                Text(stringResource(R.string.btn_use_full_warm_up))
                                             },
                                         )
                                     }

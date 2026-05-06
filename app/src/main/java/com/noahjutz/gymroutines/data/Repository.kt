@@ -208,6 +208,21 @@ class WorkoutRepository(private val workoutDao: WorkoutDao) {
         }
     }
 
+    suspend fun replaceSetsInGroup(
+        groupId: Int,
+        sets: List<WorkoutSet>,
+    ) {
+        workoutDao.deleteSetsInGroup(groupId)
+        sets.forEach { set ->
+            workoutDao.insert(
+                set.copy(
+                    groupId = groupId,
+                    workoutSetId = 0,
+                ),
+            )
+        }
+    }
+
     suspend fun getMostRecentLoggedSetForExercise(
         exerciseId: Int,
         excludeWorkoutId: Int,

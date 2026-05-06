@@ -102,6 +102,8 @@
     <string name="btn_finish_workout">Finish Workout</string>
     <string name="btn_log_alternate_exercise">Log alternate exercise</string>
     <string name="btn_clear_alternate_exercise">Clear alternate exercise</string>
+    <string name="btn_use_minimum_warm_up">Do minimum warm-up</string>
+    <string name="btn_use_full_warm_up">Do full warm-up</string>
     <string name="btn_pair_superset_with_previous">Pair superset with previous</string>
     <string name="btn_clear_superset">Clear superset</string>
     <string name="dialog_title_discard_workout">Discard Workout?</string>

@@ -258,6 +258,16 @@ class WorkoutInProgressViewModel(
         }
     }
 
+    fun setWarmupSetCount(
+        setGroup: WorkoutSetGroupWithSets,
+        targetWarmupCount: Int,
+    ) {
+        viewModelScope.launch {
+            val normalizedSets = reshapeSetsForWarmupTarget(setGroup.sets, targetWarmupCount)
+            workoutRepository.replaceSetsInGroup(setGroup.group.id, normalizedSets)
+        }
+    }
+
     private fun setEndTime(endTime: Date) {
         _workout?.workout?.let { workout ->
             viewModelScope.launch {
