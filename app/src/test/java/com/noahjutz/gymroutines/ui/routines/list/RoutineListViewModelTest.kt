@@ -39,4 +39,47 @@ class RoutineListViewModelTest {
         assertThat(entries.single().displayName).isEqualTo("Push Day")
         assertThat(entries.single().routine.routineId).isEqualTo(11)
     }
+
+    @Test
+    fun `sorts expanded entries by week then workout day order`() {
+        val input =
+            listOf(
+                RoutineListViewModel.RoutineListEntry(
+                    routine = Routine(routineId = 4, name = "Essentials 4x - Lower B (Weeks 1-4)"),
+                    displayName = "Essentials 4x - Lower B (Week 3)",
+                ),
+                RoutineListViewModel.RoutineListEntry(
+                    routine = Routine(routineId = 3, name = "Essentials 4x - Upper B (Weeks 1-4)"),
+                    displayName = "Essentials 4x - Upper B (Week 1)",
+                ),
+                RoutineListViewModel.RoutineListEntry(
+                    routine = Routine(routineId = 2, name = "Essentials 4x - Lower A (Weeks 1-4)"),
+                    displayName = "Essentials 4x - Lower A (Week 1)",
+                ),
+                RoutineListViewModel.RoutineListEntry(
+                    routine = Routine(routineId = 1, name = "Essentials 4x - Upper A (Weeks 1-4)"),
+                    displayName = "Essentials 4x - Upper A (Week 2)",
+                ),
+                RoutineListViewModel.RoutineListEntry(
+                    routine = Routine(routineId = 1, name = "Essentials 4x - Upper A (Weeks 1-4)"),
+                    displayName = "Essentials 4x - Upper A (Week 1)",
+                ),
+                RoutineListViewModel.RoutineListEntry(
+                    routine = Routine(routineId = 3, name = "Essentials 4x - Upper B (Weeks 1-4)"),
+                    displayName = "Essentials 4x - Upper B (Week 2)",
+                ),
+            )
+
+        val sorted = sortRoutineEntries(input)
+
+        assertThat(sorted.map { it.displayName })
+            .containsExactly(
+                "Essentials 4x - Upper A (Week 1)",
+                "Essentials 4x - Lower A (Week 1)",
+                "Essentials 4x - Upper B (Week 1)",
+                "Essentials 4x - Upper A (Week 2)",
+                "Essentials 4x - Upper B (Week 2)",
+                "Essentials 4x - Lower B (Week 3)",
+            )
+    }
 }

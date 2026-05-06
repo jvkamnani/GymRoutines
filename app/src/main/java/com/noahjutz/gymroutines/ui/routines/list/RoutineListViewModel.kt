@@ -50,7 +50,7 @@ class RoutineListViewModel(
                 }.filter { entry ->
                     normalizedFilter.isEmpty() ||
                         entry.displayName.lowercase(Locale.getDefault()).contains(normalizedFilter)
-                }
+                }.let(::sortRoutineEntries)
         }
 
     fun setNameFilter(name: String) {
@@ -117,4 +117,51 @@ internal fun expandRoutineWeekEntries(routine: Routine): List<RoutineListViewMod
             displayName = displayName,
         )
     }
+}
+
+internal data class EntrySortKey(
+    val week: Int?,
+    val dayOrder: Int,
+    val weekInRangeStart: Int?,
+)
+
+private val weekRegex = Regex("\\(\\s*[Ww]eek\\s*(\\d+)\\s*\\)")
+private val weekRangeRegex = Regex("\\(\\s*[Ww]eeks?\\s*(\\d+)\\s*-\\s*(\\d+)\\s*\\)")
+private val upperARegex = Regex("\\bUpper\\s*A\\b", RegexOption.IGNORE_CASE)
+private val lowerARegex = Regex("\\bLower\\s*A\\b", RegexOption.IGNORE_CASE)
+private val upperBRegex = Regex("\\bUpper\\s*B\\b", RegexOption.IGNORE_CASE)
+private val lowerBRegex = Regex("\\bLower\\s*B\\b", RegexOption.IGNORE_CASE)
+
+internal fun entrySortKey(entry: RoutineListViewModel.RoutineListEntry): EntrySortKey {
+    val displayName = entry.displayName
+    val explicitWeek = weekRegex.find(displayName)?.groupValues?.getOrNull(1)?.toIntOrNull()
+    val rangeStart =
+        weekRangeRegex.find(entry.routine.name)?.groupValues?.getOrNull(1)?.toIntOrNull()
+
+    val dayOrder =
+        when {
+            upperARegex.containsMatchIn(displayName) -> 0
+            lowerARegex.containsMatchIn(displayName) -> 1
+            upperBRegex.containsMatchIn(displayName) -> 2
+            lowerBRegex.containsMatchIn(displayName) -> 3
+            else -> 99
+        }
+
+    return EntrySortKey(
+        week = explicitWeek,
+        dayOrder = dayOrder,
+        weekInRangeStart = rangeStart,
+    )
+}
+
+internal fun sortRoutineEntries(
+    entries: List<RoutineListViewModel.RoutineListEntry>,
+): List<RoutineListViewModel.RoutineListEntry> {
+    return entries.sortedWith(
+        compareBy<RoutineListViewModel.RoutineListEntry> { entrySortKey(it).week ?: Int.MAX_VALUE }
+            .thenBy { entrySortKey(it).dayOrder }
+            .thenBy { entrySortKey(it).weekInRangeStart ?: Int.MAX_VALUE }
+            .thenBy { it.routine.routineId }
+            .thenBy { it.displayName.lowercase(Locale.getDefault()) },
+    )
 }
