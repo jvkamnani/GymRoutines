@@ -30,6 +30,7 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
 import java.util.Locale
+import java.util.regex.Pattern
 
 class ExercisePickerViewModel(
     exerciseRepository: ExerciseRepository,
@@ -106,11 +107,11 @@ class ExercisePickerViewModel(
         val allExercises = exerciseRepository.exercises.first()
         val exercisesByName =
             allExercises.associateBy {
-                it.name.trim().lowercase(Locale.getDefault())
+                normalizeExerciseLookupKey(it.name)
             }
 
         return alternativeNames.mapNotNull { alternativeName ->
-            exercisesByName[alternativeName.lowercase(Locale.getDefault())]?.exerciseId
+            exercisesByName[normalizeExerciseLookupKey(alternativeName)]?.exerciseId
         }.toSet()
     }
 
@@ -124,5 +125,13 @@ class ExercisePickerViewModel(
             ?.map { it.trim() }
             ?.filter { it.isNotEmpty() }
             .orEmpty()
+    }
+
+    private fun normalizeExerciseLookupKey(name: String): String {
+        val nonAlphaNumericRegex = Pattern.compile("[^\\p{L}\\p{N}]+")
+        return nonAlphaNumericRegex
+            .matcher(name.trim().lowercase(Locale.getDefault()))
+            .replaceAll(" ")
+            .trim()
     }
 }

@@ -118,6 +118,50 @@ class ExercisePickerViewModelTest {
             val visibleExerciseIds = viewModel.allExercises.first().map { it.exerciseId }
             assertThat(visibleExerciseIds).containsExactly(300, 21, 22)
         }
+
+    @Test
+    fun `matches alternatives despite punctuation differences`() =
+        runTest {
+            val sourceExerciseId = 400
+            val setGroupId = 9
+            val exercises =
+                listOf(
+                    Exercise(name = "Weighted Pullup", exerciseId = sourceExerciseId),
+                    Exercise(name = "Assisted Pull-Up", exerciseId = 31),
+                    Exercise(name = "Neutral Grip Pulldown", exerciseId = 32),
+                    Exercise(name = "Seated Cable Row", exerciseId = 33),
+                )
+
+            val exerciseRepository = mockk<ExerciseRepository>()
+            val workoutRepository = mockk<WorkoutRepository>()
+
+            every { exerciseRepository.exercises } returns MutableStateFlow(exercises)
+            coEvery { workoutRepository.getSetGroup(setGroupId) } returns
+                WorkoutSetGroup(
+                    workoutId = 1,
+                    exerciseId = sourceExerciseId,
+                    position = 0,
+                    id = setGroupId,
+                )
+            coEvery { exerciseRepository.getExercise(sourceExerciseId) } returns
+                Exercise(
+                    name = "Weighted Pullup",
+                    notes = "Alternatives: Assisted Pullup, Neutral-Grip Pulldown",
+                    exerciseId = sourceExerciseId,
+                )
+
+            val viewModel =
+                ExercisePickerViewModel(
+                    exerciseRepository = exerciseRepository,
+                    workoutRepository = workoutRepository,
+                    targetSetGroupId = setGroupId,
+                )
+
+            advanceUntilIdle()
+            val allowedExerciseNames = viewModel.allExercises.first().map { it.name }
+            assertThat(allowedExerciseNames)
+                .containsExactlyInAnyOrder("Assisted Pull-Up", "Neutral Grip Pulldown")
+        }
 }
 
 @OptIn(ExperimentalCoroutinesApi::class)

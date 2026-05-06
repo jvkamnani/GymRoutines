@@ -107,6 +107,48 @@ class GeneratePreloadedDbIntegrationTest(unittest.TestCase):
             notes[0],
         )
 
+    def test_missing_alternatives_are_created_as_exercises(self) -> None:
+        conn = self._run_generator(
+            {
+                "routines": [
+                    {
+                        "name": "Day 3",
+                        "exercises": [
+                            {
+                                "name": "Weighted Pullup",
+                                "track": {
+                                    "reps": True,
+                                    "weight": True,
+                                },
+                                "alternatives": [
+                                    "Assisted Pull-Up",
+                                    "Neutral-Grip Pulldown",
+                                ],
+                                "sets": [{"reps": 8, "weight": 20}],
+                            }
+                        ],
+                    }
+                ]
+            },
+        )
+
+        rows = conn.execute(
+            """
+            SELECT name, logReps, logWeight, logTime, logDistance
+            FROM exercise_table
+            WHERE name IN ('Assisted Pull-Up', 'Neutral-Grip Pulldown')
+            ORDER BY name
+            """,
+        ).fetchall()
+        self.assertEqual(2, len(rows))
+        self.assertEqual(
+            [
+                ("Assisted Pull-Up", 1, 1, 0, 0),
+                ("Neutral-Grip Pulldown", 1, 1, 0, 0),
+            ],
+            rows,
+        )
+
     def test_invalid_set_kind_fails_generation(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:
             input_path = Path(temp_dir) / "workout.json"

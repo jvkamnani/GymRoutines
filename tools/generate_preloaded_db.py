@@ -95,10 +95,37 @@ def insert_workout_data(conn: sqlite3.Connection, workout: dict[str, Any]) -> No
         raise ValueError("Input JSON must contain non-empty 'routines' array")
 
     exercise_ids: dict[str, int] = {}
+    exercise_seeded_from_alternative_only: set[str] = set()
     next_exercise_id = 1
     next_routine_id = 1
     next_group_id = 1
     next_set_id = 1
+
+    def insert_exercise_row(
+        name: str,
+        notes: str,
+        log_reps: bool,
+        log_weight: bool,
+        log_time: bool,
+        log_distance: bool,
+        exercise_id: int,
+    ) -> None:
+        conn.execute(
+            """
+            INSERT INTO exercise_table
+            (name, notes, logReps, logWeight, logTime, logDistance, hidden, exerciseId)
+            VALUES (?, ?, ?, ?, ?, ?, 0, ?)
+            """,
+            (
+                name,
+                notes,
+                int(log_reps),
+                int(log_weight),
+                int(log_time),
+                int(log_distance),
+                exercise_id,
+            ),
+        )
 
     for routine in routines:
         if not isinstance(routine, dict):
@@ -174,23 +201,50 @@ def insert_workout_data(conn: sqlite3.Connection, workout: dict[str, Any]) -> No
             log_distance = _bool(track.get("distance"), False)
 
             if key not in exercise_ids:
+                insert_exercise_row(
+                    name=normalized_name,
+                    notes=notes,
+                    log_reps=log_reps,
+                    log_weight=log_weight,
+                    log_time=log_time,
+                    log_distance=log_distance,
+                    exercise_id=next_exercise_id,
+                )
+                exercise_ids[key] = next_exercise_id
+                next_exercise_id += 1
+            elif key in exercise_seeded_from_alternative_only:
                 conn.execute(
                     """
-                    INSERT INTO exercise_table
-                    (name, notes, logReps, logWeight, logTime, logDistance, hidden, exerciseId)
-                    VALUES (?, ?, ?, ?, ?, ?, 0, ?)
+                    UPDATE exercise_table
+                    SET notes = ?, logReps = ?, logWeight = ?, logTime = ?, logDistance = ?
+                    WHERE exerciseId = ?
                     """,
                     (
-                        normalized_name,
                         notes,
                         int(log_reps),
                         int(log_weight),
                         int(log_time),
                         int(log_distance),
-                        next_exercise_id,
+                        exercise_ids[key],
                     ),
                 )
-                exercise_ids[key] = next_exercise_id
+                exercise_seeded_from_alternative_only.remove(key)
+
+            for alt_name in normalized_alts if alternatives else []:
+                alt_key = alt_name.lower()
+                if alt_key in exercise_ids:
+                    continue
+                insert_exercise_row(
+                    name=alt_name,
+                    notes="",
+                    log_reps=log_reps,
+                    log_weight=log_weight,
+                    log_time=log_time,
+                    log_distance=log_distance,
+                    exercise_id=next_exercise_id,
+                )
+                exercise_ids[alt_key] = next_exercise_id
+                exercise_seeded_from_alternative_only.add(alt_key)
                 next_exercise_id += 1
 
             exercise_id = exercise_ids[key]
