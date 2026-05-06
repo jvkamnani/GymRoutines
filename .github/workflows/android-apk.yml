@@ -24,7 +24,9 @@ jobs:
         run: chmod +x gradlew
 
       - name: Run preload DB integration tests
-        run: python3 -m unittest tools/test_generate_preloaded_db.py -v
+        run: |
+          python3 -m unittest tools/test_build_jeff_preload_from_parsed.py -v
+          python3 -m unittest tools/test_generate_preloaded_db.py -v
 
       - name: Run Kotlin unit tests
         run: ./gradlew :app:testDebugUnitTest --no-daemon --stacktrace
