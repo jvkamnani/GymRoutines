@@ -85,7 +85,11 @@ val koinModule =
         }
 
         viewModel {
-            RoutineListViewModel(get())
+            RoutineListViewModel(
+                repository = get(),
+                workoutRepository = get(),
+                preferences = get(),
+            )
         }
 
         viewModel {
@@ -129,6 +133,7 @@ val koinModule =
             WorkoutInsightsViewModel(
                 workoutRepository = get(),
                 routineRepository = get(),
+                exerciseRepository = get(),
                 preferences = get(),
             )
         }

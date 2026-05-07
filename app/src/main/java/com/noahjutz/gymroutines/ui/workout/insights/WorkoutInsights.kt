@@ -25,6 +25,8 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -100,6 +102,7 @@ fun WorkoutInsights(
     ) { paddingValues ->
         val workouts by viewModel.workouts.collectAsState(initial = null)
         val routineNames by viewModel.routineNames.collectAsState(initial = null)
+        val exerciseProgressCharts by viewModel.exerciseProgressCharts.collectAsState(initial = null)
         var pendingDeleteWorkout by remember { mutableStateOf<Workout?>(null) }
         var showDeleteWorkoutFinalConfirmation by remember { mutableStateOf(false) }
 
@@ -141,6 +144,48 @@ fun WorkoutInsights(
                     WorkoutCharts(workouts)
                 }
             }
+
+            item {
+                Text(
+                    stringResource(R.string.chart_section_exercise_progress),
+                    Modifier.padding(top = 8.dp, bottom = 12.dp, start = 16.dp, end = 16.dp),
+                    style = typography.headlineSmall,
+                )
+            }
+
+            if (exerciseProgressCharts == null) {
+                item {
+                    Box(
+                        modifier =
+                            Modifier
+                                .padding(horizontal = 16.dp)
+                                .fillMaxWidth()
+                                .height(200.dp)
+                                .placeholder(visible = true),
+                    )
+                }
+            } else if (exerciseProgressCharts?.isEmpty() == true) {
+                item {
+                    Box(
+                        Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 16.dp, vertical = 8.dp),
+                    ) {
+                        Text(
+                            stringResource(R.string.chart_no_exercise_data),
+                            color = colorScheme.onSurface.copy(alpha = 0.6f),
+                        )
+                    }
+                }
+            } else {
+                items(exerciseProgressCharts ?: emptyList(), { it.exerciseId }) { chart ->
+                    Box(Modifier.padding(horizontal = 16.dp, vertical = 8.dp)) {
+                        ExerciseProgressChartCard(chart)
+                    }
+                }
+            }
+
+            item { Spacer(Modifier.size(8.dp)) }
 
             stickyHeader {
                 Surface(Modifier.fillMaxWidth()) {
@@ -244,10 +289,47 @@ private fun DeleteConfirmation(
     )
 }
 
+@Composable
+private fun ExerciseProgressChartCard(chart: ExerciseProgressChart) {
+    val metricName =
+        when (chart.metric) {
+            ProgressMetric.WEIGHT -> stringResource(R.string.column_weight)
+            ProgressMetric.REPS -> stringResource(R.string.column_reps)
+            ProgressMetric.TIME -> stringResource(R.string.column_time)
+            ProgressMetric.DISTANCE -> stringResource(R.string.column_distance)
+        }
+    ChartCard(
+        title = "${chart.exerciseName} • $metricName",
+        subtitle = stringResource(R.string.label_latest_value, chart.latestValueLabel),
+    ) {
+        if (chart.points.size < 2) {
+            Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                Text(
+                    stringResource(R.string.chart_insufficient_data),
+                    color = colorScheme.onSurface.copy(alpha = 0.6f),
+                )
+            }
+        } else {
+            val smoothedData =
+                chart.points.chunked(3).map { chunk ->
+                    val avg = chunk.map { it.second }.average()
+                    chunk.first().first to avg.toFloat()
+                }
+            SimpleLineChart(
+                Modifier
+                    .fillMaxSize()
+                    .padding(20.dp),
+                data = smoothedData,
+                secondaryData = chart.points,
+            )
+        }
+    }
+}
+
 @ExperimentalTime
 @Composable
 private fun WorkoutCharts(workouts: List<Workout>?) {
-    ChartCard(title = stringResource(R.string.chart_workout_duration)) {
+    ChartCard(title = stringResource(R.string.chart_workout_duration), subtitle = null) {
         when {
             workouts == null -> {
                 Box(
@@ -291,6 +373,7 @@ private fun WorkoutCharts(workouts: List<Workout>?) {
 @Composable
 private fun ChartCard(
     title: String,
+    subtitle: String?,
     chart: @Composable () -> Unit,
 ) {
     ElevatedCard(
@@ -305,11 +388,20 @@ private fun ChartCard(
                 Modifier.fillMaxWidth(),
                 color = colorScheme.primary,
             ) {
-                Text(
-                    title,
-                    Modifier.padding(20.dp),
-                    style = typography.headlineSmall,
-                )
+                Column {
+                    Text(
+                        title,
+                        Modifier.padding(top = 20.dp, start = 20.dp, end = 20.dp),
+                        style = typography.headlineSmall,
+                    )
+                    if (subtitle != null) {
+                        Text(
+                            subtitle,
+                            Modifier.padding(bottom = 20.dp, start = 20.dp, end = 20.dp),
+                            style = typography.bodyMedium,
+                        )
+                    }
+                }
             }
             chart()
         }

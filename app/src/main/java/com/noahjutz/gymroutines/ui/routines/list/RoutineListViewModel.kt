@@ -18,10 +18,15 @@
 
 package com.noahjutz.gymroutines.ui.routines.list
 
+import androidx.datastore.core.DataStore
+import androidx.datastore.preferences.core.Preferences
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.noahjutz.gymroutines.data.AppPrefs
 import com.noahjutz.gymroutines.data.RoutineRepository
+import com.noahjutz.gymroutines.data.WorkoutRepository
 import com.noahjutz.gymroutines.data.domain.Routine
+import com.noahjutz.gymroutines.data.domain.Workout
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -31,6 +36,8 @@ import java.util.Locale
 
 class RoutineListViewModel(
     private val repository: RoutineRepository,
+    private val workoutRepository: WorkoutRepository,
+    private val preferences: DataStore<Preferences>,
 ) : ViewModel() {
     data class RoutineListEntry(
         val routine: Routine,
@@ -42,20 +49,26 @@ class RoutineListViewModel(
     val nameFilter = _nameFilter.asStateFlow()
 
     val routines: Flow<List<RoutineListEntry>> =
-        repository.routines.combine(nameFilter) { routines, filter ->
+        combine(repository.routines, workoutRepository.workouts, preferences.data, nameFilter) { routines, workouts, prefs, filter ->
             val normalizedFilter = filter.trim().lowercase(Locale.getDefault())
-            val sortedEntries =
+            val allSortedEntries =
                 routines
                 .filter { routine -> !routine.hidden }
                 .flatMap { routine ->
                     expandRoutineWeekEntries(routine)
-                }.filter { entry ->
-                    normalizedFilter.isEmpty() ||
-                        entry.displayName.lowercase(Locale.getDefault()).contains(normalizedFilter)
                 }.let(::sortRoutineEntries)
 
-            sortedEntries.map { entry ->
-                entry.copy(isCompleted = isEntryCompletedOnLanding(entry))
+            val currentWorkoutId = prefs[AppPrefs.CurrentWorkout.key] ?: -1
+            val completionAppliedEntries =
+                applyCompletionProgress(
+                    entries = allSortedEntries,
+                    workouts = workouts,
+                    currentWorkoutId = currentWorkoutId,
+                )
+
+            completionAppliedEntries.filter { entry ->
+                normalizedFilter.isEmpty() ||
+                    entry.displayName.lowercase(Locale.getDefault()).contains(normalizedFilter)
             }
         }
 
@@ -185,4 +198,35 @@ internal fun isEntryCompletedOnLanding(entry: RoutineListViewModel.RoutineListEn
     if (key.dayOrder == 99) return false
     return week < completedUpToWeek ||
         (week == completedUpToWeek && key.dayOrder <= completedUpToDayOrder)
+}
+
+internal fun completedSeedEntryCount(entries: List<RoutineListViewModel.RoutineListEntry>): Int {
+    val lastCompletedIndex = entries.indexOfLast(::isEntryCompletedOnLanding)
+    return if (lastCompletedIndex < 0) 0 else lastCompletedIndex + 1
+}
+
+internal fun applyCompletionProgress(
+    entries: List<RoutineListViewModel.RoutineListEntry>,
+    workouts: List<Workout>,
+    currentWorkoutId: Int,
+): List<RoutineListViewModel.RoutineListEntry> {
+    if (entries.isEmpty()) return entries
+
+    val seededCompletedCount = completedSeedEntryCount(entries)
+    val progressRoutineIds =
+        entries.mapNotNull { entry ->
+            val key = entrySortKey(entry)
+            if (key.week != null && key.dayOrder != 99) entry.routine.routineId else null
+        }.toSet()
+
+    val completedWorkoutCount =
+        workouts.count { workout ->
+            workout.workoutId != currentWorkoutId &&
+                workout.routineId in progressRoutineIds
+        }
+
+    val completedEntryCount = (seededCompletedCount + completedWorkoutCount).coerceAtMost(entries.size)
+    return entries.mapIndexed { index, entry ->
+        entry.copy(isCompleted = index < completedEntryCount)
+    }
 }

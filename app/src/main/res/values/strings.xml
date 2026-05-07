@@ -123,11 +123,17 @@
     <string name="label_warmup_target_percent_only">Warm-up target: ~%1$d%%</string>
     <string name="label_warmup_reps_target">Reps: ~%1$d</string>
     <string name="label_last_time_set">Last time: %1$s</string>
+    <string name="label_rest_timer">Rest timer: %1$s / %2$s</string>
+    <string name="btn_start_timer">Start</string>
+    <string name="btn_pause_timer">Pause</string>
     <string name="label_alternate_for">Alternate for: %1$s</string>
     <string name="label_superset_tag">Superset: %1$s</string>
     <string name="label_routine_completed">Completed</string>
     <string name="label_routine_pending">To do</string>
     <string name="chart_workout_duration">Workout duration</string>
+    <string name="chart_section_exercise_progress">Exercise progression</string>
+    <string name="chart_no_exercise_data">No logged exercise data yet.</string>
     <string name="chart_insufficient_data">Not enough data.</string>
+    <string name="label_latest_value">Latest: %1$s</string>
     <string name="screen_view_workout">View Workout</string>
 </resources>

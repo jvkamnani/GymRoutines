@@ -236,4 +236,8 @@ class WorkoutRepository(private val workoutDao: WorkoutDao) {
     ): List<WorkoutSet> {
         return workoutDao.getMostRecentSetsForExercise(exerciseId, excludeWorkoutId)
     }
+
+    fun getExerciseProgressPoints(): Flow<List<ExerciseProgressPoint>> {
+        return workoutDao.getExerciseProgressPoints()
+    }
 }

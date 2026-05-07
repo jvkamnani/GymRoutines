@@ -73,6 +73,7 @@ import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -96,6 +97,7 @@ import com.noahjutz.gymroutines.util.RegexPatterns
 import com.noahjutz.gymroutines.util.formatSimple
 import com.noahjutz.gymroutines.util.pretty
 import com.noahjutz.gymroutines.util.toStringOrBlank
+import kotlinx.coroutines.delay
 import org.koin.androidx.compose.getViewModel
 import org.koin.core.parameter.parametersOf
 
@@ -248,6 +250,12 @@ private fun WorkoutInProgressContent(
                 .collectAsState(initial = null)
             val originalExercise by viewModel.getExercise(setGroup.group.originalExerciseId ?: -1)
                 .collectAsState(initial = null)
+            val effectiveNotes =
+                effectiveExerciseNotes(
+                    activeExerciseNotes = exercise?.notes,
+                    originalExerciseNotes = originalExercise?.notes,
+                    hasAlternateExercise = setGroup.group.originalExerciseId != null,
+                )
             val previousSets by produceState(
                 initialValue = emptyList(),
                 key1 = setGroup.group.exerciseId,
@@ -256,10 +264,27 @@ private fun WorkoutInProgressContent(
                 value = viewModel.getMostRecentSetsForExercise(setGroup.group.exerciseId)
             }
             val orderedSets = remember(setGroup.sets) { setGroup.sets.sortedBy { it.workoutSetId } }
-            val warmupRange = parseWarmupSetRange(exercise?.notes)
+            val warmupRange = parseWarmupSetRange(effectiveNotes)
             val currentWarmupCount = orderedSets.count { it.setKind == SetKinds.WARM_UP }
             val repTarget = workingRepTarget(orderedSets)
             val referenceWorkingWeight = workingWeightReference(previousSets)
+            val restDurationSeconds = remember(effectiveNotes) { parseRestDurationSeconds(effectiveNotes) }
+            var restRemainingSeconds by rememberSaveable(setGroup.group.id, restDurationSeconds) {
+                mutableStateOf(restDurationSeconds ?: 0)
+            }
+            var restTimerRunning by rememberSaveable(setGroup.group.id, restDurationSeconds) {
+                mutableStateOf(false)
+            }
+            LaunchedEffect(restTimerRunning, restRemainingSeconds, restDurationSeconds) {
+                if (!restTimerRunning || restDurationSeconds == null || restRemainingSeconds <= 0) {
+                    if (restRemainingSeconds <= 0) {
+                        restTimerRunning = false
+                    }
+                    return@LaunchedEffect
+                }
+                delay(1000)
+                restRemainingSeconds -= 1
+            }
             ElevatedCard(
                 Modifier
                     .fillMaxWidth()
@@ -429,11 +454,23 @@ private fun WorkoutInProgressContent(
                             }
                         }
                     }
-                    if (exercise?.notes?.isNotBlank() == true) {
+                    if (effectiveNotes?.isNotBlank() == true) {
                         Text(
-                            text = exercise?.notes ?: "",
+                            text = effectiveNotes,
                             modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
                             style = typography.bodyMedium,
+                        )
+                    }
+                    if (restDurationSeconds != null) {
+                        RestTimerRow(
+                            remainingSeconds = restRemainingSeconds,
+                            targetSeconds = restDurationSeconds,
+                            running = restTimerRunning,
+                            onStartPause = { restTimerRunning = !restTimerRunning },
+                            onReset = {
+                                restRemainingSeconds = restDurationSeconds
+                                restTimerRunning = false
+                            },
                         )
                     }
                     Column(Modifier.padding(vertical = 16.dp)) {
@@ -774,6 +811,10 @@ private fun WorkoutInProgressContent(
                                                         value = set.complete,
                                                         onValueChange = {
                                                             viewModel.updateChecked(set, it)
+                                                            if (it && restDurationSeconds != null) {
+                                                                restRemainingSeconds = restDurationSeconds
+                                                                restTimerRunning = true
+                                                            }
                                                         },
                                                     )
                                                     .background(
@@ -933,6 +974,55 @@ private fun WorkoutInProgressContent(
                 ) {
                     Text(stringResource(R.string.btn_finish_workout))
                 }
+            }
+        }
+    }
+}
+
+@Composable
+private fun RestTimerRow(
+    remainingSeconds: Int,
+    targetSeconds: Int,
+    running: Boolean,
+    onStartPause: () -> Unit,
+    onReset: () -> Unit,
+) {
+    Surface(
+        modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
+        color = colorScheme.primary.copy(alpha = 0.08f),
+        shape = RoundedCornerShape(12.dp),
+    ) {
+        Row(
+            modifier =
+                Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 12.dp, vertical = 8.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Text(
+                text =
+                    stringResource(
+                        R.string.label_rest_timer,
+                        formatRestDuration(remainingSeconds),
+                        formatRestDuration(targetSeconds),
+                    ),
+                style = typography.bodyMedium,
+                modifier = Modifier.weight(1f),
+            )
+            Spacer(Modifier.width(8.dp))
+            TextButton(onClick = onStartPause) {
+                Text(
+                    text =
+                        if (running) {
+                            stringResource(R.string.btn_pause_timer)
+                        } else {
+                            stringResource(R.string.btn_start_timer)
+                        },
+                )
+            }
+            TextButton(onClick = onReset) {
+                Text(stringResource(R.string.btn_reset))
             }
         }
     }

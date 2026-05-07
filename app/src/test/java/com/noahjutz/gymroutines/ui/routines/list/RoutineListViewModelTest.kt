@@ -1,8 +1,10 @@
 package com.noahjutz.gymroutines.ui.routines.list
 
 import com.noahjutz.gymroutines.data.domain.Routine
+import com.noahjutz.gymroutines.data.domain.Workout
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.Test
+import java.util.Date
 
 class RoutineListViewModelTest {
     @Test
@@ -115,5 +117,83 @@ class RoutineListViewModelTest {
         assertThat(isEntryCompletedOnLanding(completedEntry)).isTrue()
         assertThat(isEntryCompletedOnLanding(completedEntryWithoutParentheses)).isTrue()
         assertThat(isEntryCompletedOnLanding(pendingEntry)).isFalse()
+    }
+
+    @Test
+    fun `advances completion by one entry for each finished plan workout`() {
+        val upperA =
+            Routine(routineId = 1, name = "Essentials 4x - Upper A (Weeks 1-12)")
+        val lowerA =
+            Routine(routineId = 2, name = "Essentials 4x - Lower A (Weeks 1-12)")
+        val upperB =
+            Routine(routineId = 3, name = "Essentials 4x - Upper B (Weeks 1-12)")
+        val lowerB =
+            Routine(routineId = 4, name = "Essentials 4x - Lower B (Weeks 1-12)")
+
+        val entries =
+            sortRoutineEntries(
+                listOf(upperA, lowerA, upperB, lowerB)
+                    .flatMap(::expandRoutineWeekEntries),
+            )
+
+        val progressed =
+            applyCompletionProgress(
+                entries = entries,
+                workouts =
+                    listOf(
+                        Workout(
+                            routineId = 2,
+                            workoutId = 999,
+                            startTime = Date(1_000),
+                            endTime = Date(2_000),
+                        ),
+                    ),
+                currentWorkoutId = -1,
+            )
+
+        val week6UpperAIndex = entries.indexOfFirst { it.displayName.contains("Upper A (Week 6)") }
+        val week6LowerAIndex = entries.indexOfFirst { it.displayName.contains("Lower A (Week 6)") }
+
+        assertThat(week6UpperAIndex).isGreaterThanOrEqualTo(0)
+        assertThat(week6LowerAIndex).isEqualTo(week6UpperAIndex + 1)
+        assertThat(progressed[week6UpperAIndex].isCompleted).isTrue()
+        assertThat(progressed[week6LowerAIndex].isCompleted).isTrue()
+    }
+
+    @Test
+    fun `does not advance completion for the active in progress workout`() {
+        val upperA =
+            Routine(routineId = 1, name = "Essentials 4x - Upper A (Weeks 1-12)")
+        val lowerA =
+            Routine(routineId = 2, name = "Essentials 4x - Lower A (Weeks 1-12)")
+        val upperB =
+            Routine(routineId = 3, name = "Essentials 4x - Upper B (Weeks 1-12)")
+        val lowerB =
+            Routine(routineId = 4, name = "Essentials 4x - Lower B (Weeks 1-12)")
+
+        val entries =
+            sortRoutineEntries(
+                listOf(upperA, lowerA, upperB, lowerB)
+                    .flatMap(::expandRoutineWeekEntries),
+            )
+
+        val progressed =
+            applyCompletionProgress(
+                entries = entries,
+                workouts =
+                    listOf(
+                        Workout(
+                            routineId = 2,
+                            workoutId = 555,
+                            startTime = Date(1_000),
+                            endTime = Date(2_000),
+                        ),
+                    ),
+                currentWorkoutId = 555,
+            )
+
+        val week6LowerAIndex = entries.indexOfFirst { it.displayName.contains("Lower A (Week 6)") }
+        assertThat(week6LowerAIndex).isGreaterThanOrEqualTo(0)
+        assertThat(progressed[week6LowerAIndex].isCompleted).isFalse()
     }
 }

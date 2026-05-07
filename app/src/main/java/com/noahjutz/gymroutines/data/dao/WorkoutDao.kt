@@ -19,6 +19,7 @@
 package com.noahjutz.gymroutines.data.dao
 
 import androidx.room.*
+import com.noahjutz.gymroutines.data.domain.ExerciseProgressPoint
 import com.noahjutz.gymroutines.data.domain.Workout
 import com.noahjutz.gymroutines.data.domain.WorkoutSet
 import com.noahjutz.gymroutines.data.domain.WorkoutSetGroup
@@ -128,4 +129,26 @@ interface WorkoutDao {
         exerciseId: Int,
         excludeWorkoutId: Int,
     ): List<WorkoutSet>
+
+    @Query(
+        """
+        SELECT
+            g.exerciseId AS exerciseId,
+            w.workoutId AS workoutId,
+            w.endTime AS workoutEndTime,
+            ws.weight AS weight,
+            ws.reps AS reps,
+            ws.time AS time,
+            ws.distance AS distance
+        FROM workout_set_table ws
+        INNER JOIN workout_set_group_table g ON g.id = ws.groupId
+        INNER JOIN workout_table w ON w.workoutId = g.workoutId
+        WHERE ws.reps IS NOT NULL
+           OR ws.weight IS NOT NULL
+           OR ws.time IS NOT NULL
+           OR ws.distance IS NOT NULL
+        ORDER BY w.endTime ASC, ws.workoutSetId ASC
+        """,
+    )
+    fun getExerciseProgressPoints(): Flow<List<ExerciseProgressPoint>>
 }
